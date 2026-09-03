@@ -4,6 +4,7 @@
 # .venv-geochat that has the GeoChat deps and ~/GeoChat cloned).
 #   GPU_BOX=user@host scripts/geochat_remote.sh start | stop | status
 set -e
+export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin:$PATH"   # some shells lose the system tools
 BOX="${GPU_BOX:?set GPU_BOX=user@host}"
 REMOTE_DIR="${GPU_REPO:-~/satquery}"
 PORT=5000

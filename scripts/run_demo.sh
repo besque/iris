@@ -8,6 +8,7 @@
 #
 # Own GPU machine instead of Colab: GPU_BOX=user@host scripts/run_demo.sh
 set -e
+export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin:$PATH"   # some shells lose the system tools
 cd "$(dirname "$0")/.."
 
 if [ "${1:-}" = "stop" ]; then
