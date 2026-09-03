@@ -35,6 +35,7 @@
 - [x] Single-image VLM: GeoChat-7B 4-bit (RS-trained, does VQA + caption + grounding in one model), Qwen2-VL-2B as fallback. Runs on Colab behind a tunnel for now, the tools only talk to backend/tools/geochat_backend.py so moving it to the 5070 Ti is an env var. (Person 2)
 - [x] Second single-image task is grounding, via GeoChat's [refer] tag phrased as "give me the location of X" ("where is X?" returns prose, verified on the 5070 Ti). Boxes come back as {<x1><y1><x2><y2>|<angle>} in 0-100, <delim> between boxes, and are converted to pixels in box_parser.py; angle is dropped. A yes/no VQA presence check runs first because [refer] boxes something even when the object is absent (seen on an airport image). Confidence is a fixed 0.7 because the model gives no score. (Person 2)
 - [x] Single-image numbers: GeoChat-7B 4-bit zero-shot on RSVQA-LR test, 700 questions: presence 91.0%, comparison 86.7%, rural/urban 94.0%, overall 89.6% (paper fp16: 91.1/90.3/94.0). Grounding phrasing study over 6 templates in evaluation/results/grounding_phrasings.md; "give me the location of X" boxes 7/7, "[grounding] highlight X" 3/7. (Person 2)
+- [x] Frontend: React + Vite (not Streamlit). Mock API until live `/upload` `/query` `/report`. Response contract matches below. (Person 5)
 
 ## API response shape (Person 5: confirm this works for you)
 
@@ -45,5 +46,3 @@
 ## Open decisions (fill in as we decide)
 
 - [ ] Which change-VQA model
-- [ ] Optical–SAR fusion approach
-- [ ] Streamlit vs React frontend
