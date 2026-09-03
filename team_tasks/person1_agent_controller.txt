@@ -1,26 +1,100 @@
-ROLE: Agent Controller + Integration Lead (you own the "brain" and the final glue)
+PERSON 1: AGENT CONTROLLER + INTEGRATION LEAD
+==============================================
+Read team_tasks/README.txt first for the big picture.
 
-You are the most important person for the demo working end to end. Everyone else builds tools, you make sure they plug in.
+CONTEXT: WHY YOUR ROLE EXISTS
+-----------------------------
+The whole point of this project (the "novelty" ISRO asked for) is the AGENT
+part: the system decides BY ITSELF which specialist model to run for a given
+question and set of images. You own that deciding brain. You also own making
+sure everyone's pieces snap together into one working demo. If models are
+mediocre but your orchestration is clean and auditable, we still score well,
+because judges explicitly grade the execution trace (the log of what the
+agent decided and ran), not the models' internal reasoning.
 
-WHAT TO BUILD (in backend/agent/):
-1. controller.py: takes the user query + validated input info, decides which task it is (vqa / caption / grounding / change / fusion), picks tools from registry.py, runs them, collects results.
-2. registry.py: the fixed menu of tools. Each entry has a name, description, and what inputs it accepts.
-3. Execution trace: for every query, record task chosen, tools used, params, and outputs as a dict. Judges evaluate this, so do it from the start, not at the end.
+GOOD NEWS: a working first version of your part already exists and passes a
+5-query demo. Your day is: understand it, harden it, then integrate everyone.
 
-HOW TO DECIDE THE APPROACH (research 30-45 min max, then commit to one):
-- Look at how Remote-Sensing-ChatGPT does routing: https://github.com/HaonanGuo/Remote-Sensing-ChatGPT (simplest controller loop, copy the pattern)
-- Also skim RS-Agent: https://github.com/intellisensing/rs-agent
-- Decision you own: use an LLM API (GPT/Claude with function calling) as the router, or a simple rule-based router (keywords + input type). Given one day, recommendation: LLM function calling with a rule-based fallback. You decide.
+WHAT EXISTS (read these files in this order, ~30 min)
+-----------------------------------------------------
+1. backend/tools/base.py ....... Tool + ToolResult. THE contract. You own it.
+   Nobody changes this file without a group message.
+2. backend/tools/mocks.py ...... 5 fake tools (vqa, caption, grounding,
+   change, fusion). They return believable fake answers.
+3. backend/agent/registry.py ... dict: task name -> tool instance. Swapping
+   a mock for a real tool = change one import line here.
+4. backend/agent/controller.py . handle_query(query, validated_inputs):
+   - normalizes the input config name (single_optical / single_sar /
+     bitemporal_pair / crossmodal_pair)
+   - routes: tries an LLM router, falls back to keyword rules
+   - runs the tool, builds the execution trace, aggregates confidence
+5. backend/agent/confidence.py . one score = MINIMUM over tools used
+   (we never claim more confidence than our weakest step)
+6. scripts/run_controller_demo.py . RUN THIS NOW:
+      PYTHONPATH=. python3 scripts/run_controller_demo.py
+   You should see 5 queries each routed to the correct task. That is the
+   whole pipeline working on mocks.
 
-KEY TRICK FOR TODAY:
-Write 5 MOCK tools first (fake VQA, fake caption, etc. that return dummy ToolResult objects). Get the whole pipeline working query -> route -> tool -> trace -> response with mocks by early afternoon. Then swap mocks for real tools as others finish. Never wait on anyone.
+YOUR TASKS, IN ORDER
+--------------------
+TASK 1 (MINIMUM): make the LLM router free.
+  Right now llm_route() in controller.py expects an Anthropic API key. We
+  are not paying for anything, so replace it with a local model via Ollama:
+    a) install: https://ollama.com  then:  ollama pull qwen2.5:3b
+    b) Ollama serves an HTTP API at http://localhost:11434. Call it with
+       the `requests` library (POST /api/chat, model "qwen2.5:3b",
+       format "json"). Ask it to pick ONE tool name from the registry menu
+       (describe_tools() in registry.py gives you the menu text).
+    c) Keep the exact same behavior on failure: if Ollama is not running or
+       returns garbage, return None so the rule-based router takes over.
+       Test both paths: with Ollama running, and with it stopped.
+  Why keep rules as fallback at all: demo machines fail. Rules cannot.
 
-DEPENDENCIES:
-- Everyone's tools follow backend/tools/base.py (Tool class, ToolResult). This file is the contract. If anyone wants to change it, they must tell the whole group. You are the owner of this file.
-- Person 4 gives you the input config types (single_optical, single_sar, bitemporal_pair, crossmodal_pair). Until then, hardcode a fake validated_inputs dict.
-- Person 5 calls your handle_query() from the API. Agree with them on the exact return dict shape in the first hour (answer, spatial, confidence, trace). Write it in docs/ARCHITECTURE.md.
+TASK 2 (MINIMUM): pair compatibility guard.
+  If the user uploads a bitemporal pair but asks "describe this image",
+  decide the behavior. Recommendation: route to change captioning anyway
+  and note it in the trace ("query suggests single-image but two images
+  given; using change description"). Whatever you pick, make it explicit
+  in the trace, never crash.
 
-BY END OF DAY:
-- handle_query() works with all real tools that landed, mocks for any that did not.
-- Execution trace visible in the response.
-- Update docs/ARCHITECTURE.md with the routing decision you made.
+TASK 3 (MINIMUM): integration duty, all day.
+  When Person 2/3/4 says "my tool works", you:
+    a) pull their branch, run their tiny test script
+    b) change the one import line in registry.py
+    c) rerun scripts/run_controller_demo.py
+    d) tell Person 5 it is live
+  Keep a checklist message pinned in the group: which registry entries are
+  still mocks. At demo time NOTHING should be a mock, but if something is,
+  you know exactly what and can steer the live demo around it.
+
+TASK 4 (BETTER, only after 1-3): multi-tool chaining.
+  Example: query "highlight the areas that changed" on a bitemporal pair =
+  change tool first, then grounding on the change mask. The controller
+  already returns a LIST of results and the confidence function already
+  takes a list, so chaining is: run tool A, feed its output into tool B,
+  append both to results. Even ONE working chained example is a big demo
+  moment ("look, it composed two specialists by itself").
+
+TASK 5 (BETTER): answer composition.
+  Raw model output can be terse. Use the same local Ollama model to rewrite
+  the final answer into 2-3 clean sentences, citing the tool outputs. Never
+  let it invent facts not present in the tool outputs (say this in the
+  prompt explicitly). If Ollama is down, return the raw text unchanged.
+
+DEPENDENCIES AND HOW TO NOT GET STUCK
+-------------------------------------
+- You depend on nobody to start. Mocks cover everyone.
+- Person 4's validator output names: controller.py has CONFIG_ALIASES to
+  map their names to ours. When their validator lands, add aliases there
+  if needed, do not rename anything.
+- Person 5 needs your response shape frozen. It is in docs/ARCHITECTURE.md.
+  Confirm it with them in hour 1 and then do not change it.
+
+DEFINITION OF DONE (check each literally)
+-----------------------------------------
+[ ] Demo script routes all 5 example queries correctly with Ollama ON
+[ ] Same, with Ollama OFF (rule fallback), and the trace says which was used
+[ ] All real tools that landed today are wired into the registry
+[ ] Trace shows: task, input config, routing method, tools + params, outputs
+[ ] Wrong-pairing case handled without crashing
+[ ] One line per decision added to docs/ARCHITECTURE.md
