@@ -1,0 +1,17 @@
+# Core
+fastapi
+uvicorn[standard]
+pydantic
+
+# Geospatial
+rasterio        # read GeoTIFF/TIFF
+numpy
+pillow
+
+# ML (pin versions once models are chosen)
+torch
+transformers
+peft            # LoRA fine-tuning
+
+# Utils
+python-multipart   # file uploads in FastAPI

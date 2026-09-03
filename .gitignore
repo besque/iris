@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Data & models — never commit these
+data/*
+!data/README.md
+models/*
+!models/README.md
+*.tif
+*.tiff
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+
+# Notebooks checkpoints
+.ipynb_checkpoints/
+
+# Env & secrets
+.env
+*.env
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Frontend
+node_modules/
+dist/
+build/
