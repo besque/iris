@@ -1,0 +1,28 @@
+ROLE: Change Analysis (bi-temporal pairs, mandatory)
+
+You own everything about "what changed between these two images". This is the principal focus of the problem statement, judges care a lot.
+
+RESEARCH FIRST (max 1 hour, then commit):
+Find a model for change description / change VQA on two images of the same area at different dates. Candidates:
+- CDChat: https://github.com/techmn/cdchat (ViT encoder on both timestamps + Vicuna, trained on change conversations)
+- ChangeChat (search for code/weights)
+- The original CDVQA baseline from the CDVQA dataset paper
+Fallback if none run today: use Person 2's VLM on both images separately, then compare the two answers with an LLM prompt ("image A says X, image B says Y, describe the change"). Crude but demoable. Decide which route by lunch.
+
+WHAT TO BUILD (in backend/tools/change/):
+1. A Tool subclass. run() takes [image_t1, image_t2] + question, returns ToolResult.
+2. Answer questions like: "what changed and where?", "has built-up area increased, decreased, or stayed the same?"
+3. Bonus if time: a simple change map (difference heatmap or mask) in ToolResult.spatial. Even a basic image-diff visualization counts as visual evidence.
+
+EVALUATION:
+Wire into evaluation/eval_cdvqa.py on the CDVQA test split. Even partial numbers help.
+
+DEPENDENCIES:
+- Follow backend/tools/base.py. Changes go through Person 1.
+- Person 4's validator confirms the two images are a compatible pair. You just assume you receive two aligned images. Test with CDVQA dataset pairs (they are PNG, already aligned).
+- Tell Person 1 when ready so they swap the mock.
+
+BY END OF DAY:
+- Change tool answers questions on a bi-temporal pair.
+- Registered in the registry.
+- One line in docs/ARCHITECTURE.md on which approach you chose.
