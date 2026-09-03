@@ -1,11 +1,12 @@
-"""LoRA fine-tune of CLIP on a BigEarthNet subset. The mandatory adaptation.
+"""LoRA fine-tune of CLIP on BigEarthNet data. The mandatory adaptation.
 
-Run on the GPU machine after scripts/prepare_bigearthnet.py:
-    pip install torch transformers peft pillow
-    python training/finetune_clip.py
+Stage 1 (land-cover labels):   python training/finetune_clip.py
+Stage 2 (BigEarthNet.txt captions, continuing from stage 1):
+    DATA=data/bigearthnet_txt INIT_LORA=models/clip_bigearthnet_lora \
+    OUT=models/clip_bigearthnet_txt_lora python training/finetune_clip.py
 
-Evaluates zero-shot label accuracy BEFORE and AFTER and writes both to
-evaluation/results/adaptation.md. Checkpoint goes to models/clip_bigearthnet_lora/.
+Rows may carry "labels" (list) or "text" (a caption). Evaluation always uses the
+labelled set (EVAL_DATA) so numbers stay comparable across stages.
 """
 
 import json
@@ -18,33 +19,38 @@ from torch.utils.data import DataLoader, Dataset
 from transformers import CLIPModel, CLIPProcessor
 
 BASE = "openai/clip-vit-base-patch32"
-DATA = "data/bigearthnet_subset"
-OUT = "models/clip_bigearthnet_lora"
-EPOCHS = 3
-BATCH = 64
+DATA = os.environ.get("DATA", "data/bigearthnet_subset")
+EVAL_DATA = os.environ.get("EVAL_DATA", "data/bigearthnet_subset")
+OUT = os.environ.get("OUT", "models/clip_bigearthnet_lora")
+INIT_LORA = os.environ.get("INIT_LORA")
+EPOCHS = int(os.environ.get("EPOCHS", 3))
+BATCH = int(os.environ.get("BATCH", 64))
 LR = 1e-4
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 PROMPT = "a satellite image of {}"
 
 
 class BenDataset(Dataset):
-    def __init__(self, split):
-        self.rows = [json.loads(l) for l in open(f"{DATA}/{split}.jsonl")]
+    def __init__(self, split, root=DATA):
+        self.rows = [json.loads(l) for l in open(f"{root}/{split}.jsonl")]
 
     def __len__(self):
         return len(self.rows)
 
     def __getitem__(self, i):
         r = self.rows[i]
-        prompt = "a SAR satellite image of {}" if r.get("modality") == "sar" else PROMPT
-        text = prompt.format(", ".join(r["labels"]).lower())
-        return Image.open(r["image"]).convert("RGB"), text, r["labels"]
+        if r.get("text"):
+            text = r["text"]
+        else:
+            prompt = "a SAR satellite image of {}" if r.get("modality") == "sar" else PROMPT
+            text = prompt.format(", ".join(r["labels"]).lower())
+        return Image.open(r["image"]).convert("RGB"), text, r.get("labels", [])
 
 
 def collate(batch, processor):
     images, texts, labels = zip(*batch)
     enc = processor(text=list(texts), images=list(images), return_tensors="pt",
-                    padding=True, truncation=True)
+                    padding=True, truncation=True, max_length=77)
     return enc, labels
 
 
@@ -65,7 +71,7 @@ def _as_features(model, out, kind):
 @torch.no_grad()
 def zero_shot_top1(model, processor, split="val"):
     """Fraction of samples whose top-ranked label is one of their true labels."""
-    ds = BenDataset(split)
+    ds = BenDataset(split, root=EVAL_DATA)
     all_labels = sorted({l for r in ds.rows for l in r["labels"]})
     text_enc = processor(text=[PROMPT.format(l.lower()) for l in all_labels],
                          return_tensors="pt", padding=True, truncation=True).to(DEVICE)
@@ -83,17 +89,21 @@ def zero_shot_top1(model, processor, split="val"):
 
 
 def main():
-    from peft import LoraConfig, get_peft_model
+    from peft import LoraConfig, PeftModel, get_peft_model
 
     processor = CLIPProcessor.from_pretrained(BASE)
     model = CLIPModel.from_pretrained(BASE).to(DEVICE)
 
+    if INIT_LORA:
+        model = PeftModel.from_pretrained(model, INIT_LORA, is_trainable=True)
+        print(f"continuing from {INIT_LORA}")
     before = zero_shot_top1(model, processor)
     print(f"zero-shot top-1 BEFORE: {before:.3f}")
 
-    lora = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.1,
-                      target_modules=["q_proj", "k_proj", "v_proj", "out_proj"])
-    model = get_peft_model(model, lora)
+    if not INIT_LORA:
+        lora = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.1,
+                          target_modules=["q_proj", "k_proj", "v_proj", "out_proj"])
+        model = get_peft_model(model, lora)
     model.print_trainable_parameters()
 
     loader = DataLoader(BenDataset("train"), batch_size=BATCH, shuffle=True,
@@ -118,13 +128,12 @@ def main():
     model.save_pretrained(OUT)
 
     os.makedirs("evaluation/results", exist_ok=True)
-    with open("evaluation/results/adaptation.md", "w") as f:
+    with open("evaluation/results/adaptation.md", "a") as f:
         f.write(
-            f"# Remote-sensing adaptation proof\n\n"
-            f"Base model: {BASE}, LoRA r=16, {EPOCHS} epochs, batch {BATCH}, lr {LR}\n"
-            f"Data: BigEarthNet subset ({DATA})\n\n"
+            f"\n## Run: data={DATA} init={INIT_LORA or 'base'} -> {OUT}\n\n"
+            f"Base model: {BASE}, LoRA r=16, {EPOCHS} epochs, batch {BATCH}, lr {LR}\n\n"
             f"| metric | before | after |\n|---|---|---|\n"
-            f"| zero-shot label top-1 (val) | {before:.3f} | {after:.3f} |\n"
+            f"| zero-shot label top-1 (val, {EVAL_DATA}) | {before:.3f} | {after:.3f} |\n"
         )
     print(f"saved checkpoint to {OUT} and numbers to evaluation/results/adaptation.md")
 

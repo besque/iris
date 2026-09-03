@@ -18,6 +18,13 @@ THEMES = {
 }
 
 
+CHANGE_CUTOFF = 15.5   # percent of pixels, from scripts/eval_change_map.py on LEVIR-CC
+
+
+def _first_sentence(text: str) -> str:
+    return re.split(r"(?<=[.!?])\s", text.strip(), maxsplit=1)[0]
+
+
 def _count(text: str, words) -> int:
     t = text.lower()
     return sum(len(re.findall(rf"\b{w}\w*", t)) for w in words)
@@ -53,18 +60,32 @@ class ChangeTool(Tool):
             before, after = _count(desc_a, THEMES[theme]), _count(desc_b, THEMES[theme])
             trend = "increased" if after > before else "decreased" if after < before else "remained unchanged"
 
-        if cm["percent"] < 1.0:
-            text = f"Little to no change detected: about {cm['percent']}% of the scene differs between the two dates."
-            if theme:
-                text += f" The {theme} appears to have remained unchanged."
-        else:
-            text = (f"About {cm['percent']}% of the scene changed, concentrated in the {cm['region']}. "
-                    f"Earlier image: {desc_a} Later image: {desc_b}")
-            if theme and trend:
-                text += f" Based on the two descriptions, the {theme} has {trend}."
+        # the map alone is fooled by seasons, so the verdict needs the descriptions to agree with it
+        counts_a = {k: _count(desc_a, w) for k, w in THEMES.items()}
+        counts_b = {k: _count(desc_b, w) for k, w in THEMES.items()}
+        descs_differ = counts_a != counts_b
+        big_map = cm["percent"] >= CHANGE_CUTOFF
+        no_change = not big_map and not descs_differ
 
-        descs_differ = _count(desc_a, sum(THEMES.values(), [])) != _count(desc_b, sum(THEMES.values(), []))
-        agree = (cm["percent"] >= 1.0) == descs_differ
+        if no_change:
+            text = f"Little to no change detected between the two dates (about {cm['percent']}% of pixels differ, mostly seasonal)."
+            if theme:
+                text += f" The {theme} appears unchanged."
+        else:
+            grew = [k for k in THEMES if counts_b[k] > counts_a[k]]
+            shrank = [k for k in THEMES if counts_b[k] < counts_a[k]]
+            what = []
+            if grew:
+                what.append(f"more {', '.join(grew)}")
+            if shrank:
+                what.append(f"less {', '.join(shrank)}")
+            summary = " and ".join(what) if what else "a different arrangement of the same land-cover types"
+            text = (f"The later image shows {summary}. About {cm['percent']}% of the scene changed, "
+                    f"mainly in the {cm['region']}. Before: {_first_sentence(desc_a)} After: {_first_sentence(desc_b)}")
+            if theme and trend:
+                text += f" Overall the {theme} has {trend}."
+
+        agree = big_map == descs_differ
         return ToolResult(
             text=text,
             spatial={"type": "mask", "data": cm["mask"].astype("uint8")},
