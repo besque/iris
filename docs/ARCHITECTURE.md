@@ -32,6 +32,9 @@
 - [x] Fusion v1: rule-based. Water = dark SAR AND NDWI>0, built-up = bright SAR minus vegetation minus water; confidence = sensor agreement on water. Upgrade path: fine-tuned CLIP tile classification. (Person 4)
 - [x] Adaptation: LoRA on openai CLIP ViT-B/32, BigEarthNet subset streamed from HF (BIFOLD-BigEarthNetv2-0/BigEarthNet.txt), before/after zero-shot numbers in evaluation/results/adaptation.md. (Person 4)
 
+- [x] Single-image VLM: GeoChat-7B 4-bit (RS-trained, does VQA + caption + grounding in one model), Qwen2-VL-2B as fallback. Runs on Colab behind a tunnel for now, the tools only talk to backend/tools/geochat_backend.py so moving it to the 5070 Ti is an env var. (Person 2)
+- [x] Second single-image task is grounding, via GeoChat's [refer] tag phrased as "give me the location of X" ("where is X?" returns prose, verified on the 5070 Ti). Boxes come back as {<x1><y1><x2><y2>|<angle>} in 0-100, <delim> between boxes, and are converted to pixels in box_parser.py; angle is dropped. A yes/no VQA presence check runs first because [refer] boxes something even when the object is absent (seen on an airport image). Confidence is a fixed 0.7 because the model gives no score. (Person 2)
+
 ## API response shape (Person 5: confirm this works for you)
 
 ```json
@@ -40,8 +43,6 @@
 
 ## Open decisions (fill in as we decide)
 
-- [ ] Which base VLM to fine-tune (GeoChat? LLaVA + LoRA? …)
 - [ ] Which change-VQA model
 - [ ] Optical–SAR fusion approach
 - [ ] Streamlit vs React frontend
-- [ ] Person 2: captioning or grounding as the second single-image task? (mocks exist for both)

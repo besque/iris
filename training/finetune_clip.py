@@ -48,6 +48,17 @@ def collate(batch, processor):
     return enc, labels
 
 
+def _as_features(model, out, kind):
+    """Newer transformers return an output object here instead of a tensor."""
+    if torch.is_tensor(out):
+        return out
+    emb = getattr(out, f"{kind}_embeds", None)
+    if emb is not None:
+        return emb
+    proj = model.text_projection if kind == "text" else model.visual_projection
+    return proj(out.pooler_output)
+
+
 @torch.no_grad()
 def zero_shot_top1(model, processor, split="val"):
     """Fraction of samples whose top-ranked label is one of their true labels."""
@@ -55,13 +66,13 @@ def zero_shot_top1(model, processor, split="val"):
     all_labels = sorted({l for r in ds.rows for l in r["labels"]})
     text_enc = processor(text=[PROMPT.format(l.lower()) for l in all_labels],
                          return_tensors="pt", padding=True, truncation=True).to(DEVICE)
-    text_emb = model.get_text_features(**text_enc)
+    text_emb = _as_features(model, model.get_text_features(**text_enc), "text")
     text_emb = text_emb / text_emb.norm(dim=-1, keepdim=True)
 
     hits = 0
     for img, _, labels in ds:
         enc = processor(images=img, return_tensors="pt").to(DEVICE)
-        emb = model.get_image_features(**enc)
+        emb = _as_features(model, model.get_image_features(**enc), "image")
         emb = emb / emb.norm(dim=-1, keepdim=True)
         top = all_labels[(emb @ text_emb.T).argmax().item()]
         hits += top in labels

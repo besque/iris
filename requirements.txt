@@ -15,3 +15,4 @@ peft            # LoRA fine-tuning
 
 # Utils
 python-multipart   # file uploads in FastAPI
+requests           # tools calling a tunneled model endpoint
