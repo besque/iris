@@ -29,14 +29,34 @@ def backend_name() -> str:
     return "http" if os.environ.get("GEOCHAT_ENDPOINT") else "local"
 
 
+def _remote_health() -> dict:
+    """The serve cell reports which model it loaded, so ask it once instead of guessing."""
+    if "health" not in _local:
+        _local["health"] = {}
+        url = os.environ.get("GEOCHAT_ENDPOINT")
+        if url:
+            try:
+                import requests
+                _local["health"] = requests.get(url.rstrip("/") + "/health", timeout=15).json()
+            except Exception:
+                pass
+    return _local["health"]
+
+
 def model_name() -> str:
     if os.environ.get("GEOCHAT_MODEL_NAME"):
         return os.environ["GEOCHAT_MODEL_NAME"]
+    if backend_name() == "http" and _remote_health().get("model"):
+        return _remote_health()["model"]
     return "Qwen2-VL-2B-Instruct" if backend_name() == "qwen" else "geochat-7B"
 
 
 def coord_scale() -> int:
-    return int(os.environ.get("GEOCHAT_COORD_SCALE", COORD_SCALES.get(model_name(), 100)))
+    if os.environ.get("GEOCHAT_COORD_SCALE"):
+        return int(os.environ["GEOCHAT_COORD_SCALE"])
+    if backend_name() == "http" and _remote_health().get("coord_scale"):
+        return int(_remote_health()["coord_scale"])
+    return COORD_SCALES.get(model_name(), 100)
 
 
 def load_image(image) -> Image.Image:
@@ -90,6 +110,8 @@ def _call_http(image, prompt):
     url = os.environ.get("GEOCHAT_ENDPOINT")
     if not url:
         raise RuntimeError("GEOCHAT_ENDPOINT not set (the tunnel URL printed by the notebook)")
+    if "qwen" in model_name().lower():
+        prompt = qwen_prompt(prompt)   # the fallback model has no [refer] tags
     buf = io.BytesIO()
     image.save(buf, format="PNG")
     payload = {"image": base64.b64encode(buf.getvalue()).decode(), "prompt": prompt}
