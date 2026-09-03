@@ -28,6 +28,7 @@ if [ -z "${GEOCHAT_ENDPOINT:-}" ]; then
     echo "Continuing without GeoChat: only the fusion tool and the change map will answer."
   fi
 fi
+export GEOCHAT_ENDPOINT="${GEOCHAT_ENDPOINT%/}"   # a trailing slash would give //health
 [ -n "${GEOCHAT_ENDPOINT:-}" ] && echo "geochat: $GEOCHAT_ENDPOINT -> $(curl -s -m 10 "$GEOCHAT_ENDPOINT/health" || echo unreachable)"
 
 # always restart the API so it picks up the endpoint given on this run
