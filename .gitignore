@@ -49,3 +49,8 @@ models/*
 node_modules/
 dist/
 build/
+
+# demo inputs are small and needed for the demo
+!data/samples/
+!data/samples/*
+!data/samples/*.tif
