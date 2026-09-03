@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# Starts or stops the GeoChat server on the GPU box and the ssh tunnel to it.
-# Nothing stays running on the box after `stop`.
-#   scripts/geochat_remote.sh start
-#   scripts/geochat_remote.sh stop
-#   scripts/geochat_remote.sh status
+# Optional: run GeoChat on your own GPU machine over ssh instead of Colab.
+# Set GPU_BOX (user@host) and GPU_REPO (path of this repo there, with a
+# .venv-geochat that has the GeoChat deps and ~/GeoChat cloned).
+#   GPU_BOX=user@host scripts/geochat_remote.sh start | stop | status
 set -e
-BOX="${GPU_BOX:-user@host}"
+BOX="${GPU_BOX:?set GPU_BOX=user@host}"
 REMOTE_DIR="${GPU_REPO:-~/satquery}"
 PORT=5000
 

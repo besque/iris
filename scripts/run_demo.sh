@@ -1,23 +1,33 @@
 #!/usr/bin/env bash
-# Brings up the whole demo on this laptop: GeoChat (remote, on demand), API, web app.
-#   scripts/run_demo.sh          start everything, then open http://127.0.0.1:5173
-#   scripts/run_demo.sh stop     stop everything, including the remote model
+# Brings up the demo on this laptop: API on :8000 and the web app on :5173.
+#
+# The GeoChat model runs on a free Colab GPU (notebooks/geochat_colab.ipynb,
+# section 2 prints a https://....trycloudflare.com URL):
+#   GEOCHAT_ENDPOINT=https://xxxx.trycloudflare.com scripts/run_demo.sh
+#   scripts/run_demo.sh stop
+#
+# Own GPU machine instead of Colab: GPU_BOX=user@host scripts/run_demo.sh
 set -e
 cd "$(dirname "$0")/.."
 
 if [ "${1:-}" = "stop" ]; then
   pkill -f "uvicorn backend.api.main" || true
   pkill -f "vite" || true
-  [ -z "${GEOCHAT_ENDPOINT:-}" ] && scripts/geochat_remote.sh stop
+  [ -n "${GPU_BOX:-}" ] && scripts/geochat_remote.sh stop
   exit 0
 fi
 
-# GEOCHAT_ENDPOINT already set (e.g. a Colab tunnel URL) -> use it, skip the GPU box
 if [ -z "${GEOCHAT_ENDPOINT:-}" ]; then
-  scripts/geochat_remote.sh start
-  export GEOCHAT_ENDPOINT=http://localhost:5000
+  if [ -n "${GPU_BOX:-}" ]; then
+    scripts/geochat_remote.sh start
+    export GEOCHAT_ENDPOINT=http://localhost:5000
+  else
+    echo "GEOCHAT_ENDPOINT is not set. Start notebooks/geochat_colab.ipynb on Colab, copy the tunnel URL, then:"
+    echo "  GEOCHAT_ENDPOINT=https://xxxx.trycloudflare.com scripts/run_demo.sh"
+    echo "Continuing without GeoChat: only the fusion tool and the change map will answer."
+  fi
 fi
-echo "geochat: $GEOCHAT_ENDPOINT -> $(curl -s -m 10 "$GEOCHAT_ENDPOINT/health" || echo unreachable)"
+[ -n "${GEOCHAT_ENDPOINT:-}" ] && echo "geochat: $GEOCHAT_ENDPOINT -> $(curl -s -m 10 "$GEOCHAT_ENDPOINT/health" || echo unreachable)"
 
 pgrep -f "uvicorn backend.api.main" >/dev/null || \
   (PYTHONPATH=. nohup .venv/bin/uvicorn backend.api.main:app --port 8000 > /tmp/iridis_api.log 2>&1 &)
@@ -27,4 +37,4 @@ echo "api: $(curl -s http://localhost:8000/health)"
 pgrep -f "vite" >/dev/null || \
   (cd frontend && VITE_USE_MOCK=false nohup npm run dev -- --host 127.0.0.1 > /tmp/iridis_vite.log 2>&1 &)
 sleep 3
-echo "web app: http://127.0.0.1:5173   (logs: /tmp/iridis_api.log, /tmp/iridis_vite.log, box:/tmp/geochat_serve.log)"
+echo "web app: http://127.0.0.1:5173   (logs: /tmp/iridis_api.log, /tmp/iridis_vite.log)"

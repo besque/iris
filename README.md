@@ -33,18 +33,21 @@ Answer + evidence image + execution summary + JSON report
 
 ## Running the demo
 
-Needs: this laptop (Python 3.11+, Node 18+) and ssh access to the GPU box that holds the GeoChat weights. Nothing runs on the GPU box permanently; the model server is started for the session and stopped afterwards.
+Needs: a laptop with Python 3.11+ and Node 18+, plus a free Colab GPU for the GeoChat model.
+
+1. Open `notebooks/geochat_colab.ipynb` in Google Colab (Runtime → T4 GPU), run section 1 (installs, downloads the weights, loads the model in 4-bit) and section 2 (serves it and prints a `https://....trycloudflare.com` URL). Keep the tab open.
+2. On the laptop:
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 (cd frontend && npm install)
 
-scripts/run_demo.sh        # starts GeoChat remotely + ssh tunnel, the API on :8000, the web app on :5173
+GEOCHAT_ENDPOINT=https://xxxx.trycloudflare.com scripts/run_demo.sh   # API on :8000, web app on :5173
 open http://127.0.0.1:5173
-scripts/run_demo.sh stop   # stops everything, including the remote model
+scripts/run_demo.sh stop
 ```
 
-Without the GPU box, the pipeline still runs against the fusion tool and the change map; GeoChat-backed tools need `GEOCHAT_ENDPOINT`.
+Without `GEOCHAT_ENDPOINT` the pipeline still runs, but only the fusion tool and the change map answer. To use your own GPU machine instead of Colab, see `scripts/geochat_remote.sh`.
 
 Useful checks:
 
