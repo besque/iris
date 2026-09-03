@@ -4,6 +4,10 @@ Usage: PYTHONPATH=. python scripts/run_controller_demo.py"""
 import json
 
 from backend.agent.controller import handle_query
+from backend.preprocessing.validator import validate_inputs
+from scripts.make_sample_pair import make_pair
+
+opt_path, sar_path = make_pair("/tmp/satquery_test")
 
 EXAMPLES = [
     ("Describe the land-cover and major objects visible in this image.",
@@ -15,7 +19,7 @@ EXAMPLES = [
     ("What changed between these two dates, and where did the change occur?",
      {"config_type": "bitemporal_pair", "images": ["t1.png", "t2.png"], "warnings": []}),
     ("Use the optical and SAR images together to identify built-up and water-covered regions.",
-     {"config_type": "crossmodal_pair", "images": ["opt.tif", "sar.tif"], "warnings": []}),
+     validate_inputs([opt_path, sar_path])),
 ]
 
 for query, inputs in EXAMPLES:

@@ -1,9 +1,9 @@
 """Fixed list of tools the controller can pick from."""
 
+from backend.tools.fusion.fusion_tool import FusionTool
 from backend.tools.mocks import (
     MockCaptionTool,
     MockChangeTool,
-    MockFusionTool,
     MockGroundingTool,
     MockVQATool,
 )
@@ -14,7 +14,7 @@ TOOL_REGISTRY = {
     "caption": MockCaptionTool(),    # mock, waiting on person 2
     "grounding": MockGroundingTool(),  # mock, waiting on person 2
     "change": MockChangeTool(),      # mock, waiting on person 3
-    "fusion": MockFusionTool(),      # mock, waiting on person 4
+    "fusion": FusionTool(),          # real
 }
 
 
