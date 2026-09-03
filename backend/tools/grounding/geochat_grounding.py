@@ -64,8 +64,9 @@ class GeoChatGrounding(Tool):
                     text=f"No {obj.removeprefix('the ').removeprefix('a ')} found in the image.",
                     spatial={"type": "bbox", "data": []},
                     confidence=FIXED_CONFIDENCE,
-                    metadata={**meta, "params": {"prompts": [presence_prompt], "task_tag": task_tag,
-                                                 "coord_scale": scale, **params}},
+                    metadata={**meta, "raw_output": presence,
+                              "params": {"prompts": [presence_prompt], "task_tag": task_tag,
+                                         "coord_scale": scale, **params}},
                 )
 
         raw = gc._call_geochat(image, prompt)

@@ -112,6 +112,7 @@ def test_grounding_presence_check_blocks_hallucinated_box():
     r = GeoChatGrounding().run(np.zeros((64, 64, 3), np.uint8), "highlight the water body")
     assert len(calls) == 1 and calls[0][1] == "Is there the water body in this image? Answer yes or no."
     assert r.spatial["data"] == [] and r.text == "No water body found in the image."
+    assert r.metadata["raw_output"] == "No"
 
 
 def test_parse_real_geochat_output_with_delim():

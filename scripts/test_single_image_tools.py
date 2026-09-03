@@ -89,7 +89,7 @@ def main():
             print(f"  A: {r.text}")
             print(f"  boxes (pixels, image {r.metadata['image_size'][0]}x{r.metadata['image_size'][1]}): {fmt_boxes(boxes)}")
             print(f"  confidence: {r.confidence} ({r.metadata['confidence_source']})")
-            print(f"  raw model output: {r.metadata['raw_output']!r}")
+            print(f"  raw model output: {r.metadata.get('raw_output')!r}")
         except Exception as e:
             failures += 1
             print(f"  GROUNDING FAILED: {type(e).__name__}: {e}")
