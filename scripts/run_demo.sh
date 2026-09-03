@@ -8,14 +8,19 @@ cd "$(dirname "$0")/.."
 if [ "${1:-}" = "stop" ]; then
   pkill -f "uvicorn backend.api.main" || true
   pkill -f "vite" || true
-  scripts/geochat_remote.sh stop
+  [ -z "${GEOCHAT_ENDPOINT:-}" ] && scripts/geochat_remote.sh stop
   exit 0
 fi
 
-scripts/geochat_remote.sh start
+# GEOCHAT_ENDPOINT already set (e.g. a Colab tunnel URL) -> use it, skip the GPU box
+if [ -z "${GEOCHAT_ENDPOINT:-}" ]; then
+  scripts/geochat_remote.sh start
+  export GEOCHAT_ENDPOINT=http://localhost:5000
+fi
+echo "geochat: $GEOCHAT_ENDPOINT -> $(curl -s -m 10 "$GEOCHAT_ENDPOINT/health" || echo unreachable)"
 
 pgrep -f "uvicorn backend.api.main" >/dev/null || \
-  (GEOCHAT_ENDPOINT=http://localhost:5000 PYTHONPATH=. nohup .venv/bin/uvicorn backend.api.main:app --port 8000 > /tmp/iridis_api.log 2>&1 &)
+  (PYTHONPATH=. nohup .venv/bin/uvicorn backend.api.main:app --port 8000 > /tmp/iridis_api.log 2>&1 &)
 for _ in $(seq 1 20); do curl -s -m 2 http://localhost:8000/health >/dev/null && break; sleep 1; done
 echo "api: $(curl -s http://localhost:8000/health)"
 
