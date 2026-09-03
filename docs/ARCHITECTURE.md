@@ -27,5 +27,4 @@
 - [ ] Which change-VQA model
 - [ ] Optical–SAR fusion approach
 - [x] Frontend: React + Vite (not Streamlit). Mock API until Person 1 `handle_query()` is ready. Response contract: `answer`, `spatial`, `confidence`, `trace`.
-- [x] Frontend **Version 1** snapshot: `frontend/versions/v1/` (EO-studio UI; workflow ≠ studio CTAs). Say “restore version 1” to bring it back.
 - [ ] LLM used for the controller (API vs local)
