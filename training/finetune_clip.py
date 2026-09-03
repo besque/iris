@@ -49,14 +49,17 @@ def collate(batch, processor):
 
 
 def _as_features(model, out, kind):
-    """Newer transformers return an output object here instead of a tensor."""
+    """Newer transformers return an output object, sometimes already projected."""
     if torch.is_tensor(out):
         return out
     emb = getattr(out, f"{kind}_embeds", None)
     if emb is not None:
         return emb
+    pooled = out.pooler_output
+    if pooled.shape[-1] == model.config.projection_dim:
+        return pooled
     proj = model.text_projection if kind == "text" else model.visual_projection
-    return proj(out.pooler_output)
+    return proj(pooled)
 
 
 @torch.no_grad()
