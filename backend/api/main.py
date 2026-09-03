@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from backend.agent.controller import handle_query
 from backend.preprocessing.validator import to_rgb, validate_inputs
 from backend.reporting.overlay import PALETTES, draw_boxes, draw_mask
+from backend.tools.grounding.geochat_grounding import object_phrase
 
 UPLOADS = os.environ.get("UPLOAD_DIR", "data/uploads")
 URL_PREFIX = os.environ.get("FILES_URL_PREFIX", "/api/files")
@@ -111,9 +112,10 @@ def query(body: QueryIn):
     sp = r.get("spatial")
     if sp and sp.get("type") == "bbox" and sp.get("data"):
         w, h = base.size
-        boxes = [{"label": trace["task_selected"], "x": x1 / w, "y": y1 / h, "w": (x2 - x1) / w, "h": (y2 - y1) / h}
+        label = object_phrase(body.query).removeprefix("the ").removeprefix("a ")[:40] or trace["task_selected"]
+        boxes = [{"label": label, "x": x1 / w, "y": y1 / h, "w": (x2 - x1) / w, "h": (y2 - y1) / h}
                  for x1, y1, x2, y2 in sp["data"]]
-        img = draw_boxes(base, sp["data"])
+        img = draw_boxes(base, sp["data"], label)
         spatial = {"boxes": boxes, "overlay_note": f"{len(boxes)} region(s) found"}
     elif sp and sp.get("type") == "mask" and sp.get("data") is not None:
         mask = np.asarray(sp["data"])
