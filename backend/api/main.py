@@ -1,10 +1,4 @@
-"""FastAPI server — the endpoints the frontend talks to.
-
-Planned endpoints:
-- POST /upload   -> upload image(s), run validation, return config type
-- POST /query    -> {session_id, query} -> answer + evidence + trace
-- GET  /report/{session_id} -> downloadable report (JSON/PDF)
-"""
+"""API server. Planned: POST /upload, POST /query, GET /report."""
 
 from fastapi import FastAPI
 
