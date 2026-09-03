@@ -1,10 +1,10 @@
-"""Scene description through GeoChat. Same model as VQA, fixed prompt."""
+"""Scene description through GeoChat, same backend as the VQA tool."""
 
 from backend.tools import geochat_backend as gc
 from backend.tools.base import Tool, ToolResult
-from backend.tools.vqa.geochat_vqa import FIXED_CONFIDENCE
 
-DEFAULT_PROMPT = "Describe this satellite image in detail."
+FIXED_CONFIDENCE = 0.7
+DEFAULT_PROMPT = "Describe the land cover and the major objects visible in this satellite image."
 
 
 class GeoChatCaption(Tool):
@@ -14,16 +14,15 @@ class GeoChatCaption(Tool):
 
     def run(self, images, query, **params) -> ToolResult:
         image = gc.load_image(images)
-        prompt = params.pop("prompt", None) or DEFAULT_PROMPT
+        prompt = query.strip() or DEFAULT_PROMPT
         raw = gc._call_geochat(image, prompt)
         return ToolResult(
-            text=raw.strip() or "(no answer)",
+            text=raw.strip() or "(no description)",
             confidence=FIXED_CONFIDENCE,
             metadata={
                 "model": gc.model_name(),
-                "params": {"prompt": prompt, "query": query, **params},
+                "params": {"prompt": prompt, **params},
                 "confidence_source": "fixed",
                 "backend": gc.backend_name(),
-                "image_size": list(image.size),
             },
         )

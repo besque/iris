@@ -1,20 +1,17 @@
 """Fixed list of tools the controller can pick from."""
 
+from backend.tools.captioning.geochat_caption import GeoChatCaption
+from backend.tools.change.change_tool import ChangeTool
 from backend.tools.fusion.fusion_tool import FusionTool
-from backend.tools.mocks import (
-    MockCaptionTool,
-    MockChangeTool,
-    MockGroundingTool,
-    MockVQATool,
-)
+from backend.tools.grounding.geochat_grounding import GeoChatGrounding
+from backend.tools.vqa.geochat_vqa import GeoChatVQA
 
-# swap a mock for the real tool here when it lands, nothing else changes
 TOOL_REGISTRY = {
-    "vqa": MockVQATool(),            # mock, waiting on person 2
-    "caption": MockCaptionTool(),    # mock, waiting on person 2
-    "grounding": MockGroundingTool(),  # mock, waiting on person 2
-    "change": MockChangeTool(),      # mock, waiting on person 3
-    "fusion": FusionTool(),          # real
+    "vqa": GeoChatVQA(),
+    "caption": GeoChatCaption(),
+    "grounding": GeoChatGrounding(),
+    "change": ChangeTool(),
+    "fusion": FusionTool(),
 }
 
 
