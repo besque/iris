@@ -21,10 +21,27 @@
 - Every query produces an execution trace (this is what judges evaluate).
 - Big files never in git.
 
+## Decisions made
+
+- [x] Routing: LLM function-call first, keyword rules as fallback; input config (pair type) overrides keywords. Trace records which path fired. (Person 1)
+- [x] Confidence: top-level score = minimum across tools used, see backend/agent/confidence.py. Weakest link sets the ceiling. (Person 1)
+- [x] Input config names: canonical enum lives in controller.py CONFIG_ALIASES; if the validator emits different names, add an alias there, do not rename. (Person 1)
+- [x] ToolResult contract unchanged from the skeleton: text/spatial/confidence/metadata. API maps text -> answer. (Person 1)
+
+- [x] Modality detection: filename hints first, else band count + dtype (1-2 bands or non-uint8 = SAR). Reasons recorded in warnings. (Person 4)
+- [x] Fusion v1: rule-based. Water = dark SAR AND NDWI>0, built-up = bright SAR minus vegetation minus water; confidence = sensor agreement on water. Upgrade path: fine-tuned CLIP tile classification. (Person 4)
+- [x] Adaptation: LoRA on openai CLIP ViT-B/32, BigEarthNet subset streamed from HF (BIFOLD-BigEarthNetv2-0/BigEarthNet.txt), before/after zero-shot numbers in evaluation/results/adaptation.md. (Person 4)
+
+## API response shape (Person 5: confirm this works for you)
+
+```json
+{"answer": str, "spatial": dict|null, "confidence": float, "trace": {...}}
+```
+
 ## Open decisions (fill in as we decide)
 
 - [ ] Which base VLM to fine-tune (GeoChat? LLaVA + LoRA? …)
 - [ ] Which change-VQA model
 - [ ] Optical–SAR fusion approach
 - [ ] Streamlit vs React frontend
-- [ ] LLM used for the controller (API vs local)
+- [ ] Person 2: captioning or grounding as the second single-image task? (mocks exist for both)

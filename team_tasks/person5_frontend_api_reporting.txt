@@ -1,0 +1,109 @@
+PERSON 5: THE WEB APP + EVIDENCE + REPORTS (what judges actually see)
+======================================================================
+Read team_tasks/README.txt first for the big picture.
+
+CONTEXT: WHY YOUR ROLE EXISTS
+-----------------------------
+Judges will spend 5 minutes with our product. They will not read model code.
+They will upload images, type a question, and look at what comes back. You
+own that entire experience. The problem statement explicitly requires: input
+upload with compatibility checking, visual evidence, confidence info, an
+execution summary, and DOWNLOADABLE REPORTS. Every one of those words is a
+line item you build.
+
+Also the ISRO angle: the whole reason this product exists is that non-expert
+users find GIS tools overwhelming. If our UI looks like a GIS tool, we lose
+the plot. One upload box, one question box, one clear answer.
+
+STACK: Streamlit, one process, no separate API server.
+------------------------------------------------------
+Streamlit is Python-only and fast to build. Import the backend directly:
+    from backend.agent.controller import handle_query
+    from backend.preprocessing.validator import validate_inputs
+No FastAPI needed today (backend/api/main.py stays as a stub; mention in
+ARCHITECTURE.md that a REST API is a straightforward extension).
+Run from repo root so imports work:  streamlit run frontend/app.py
+
+THE CONTRACT YOU BUILD AGAINST (frozen, in docs/ARCHITECTURE.md):
+  handle_query(query, validated_inputs) returns:
+    {"answer": str,
+     "spatial": {"type": "bbox"|"mask", "data": ...} | None,
+     "confidence": float,        # 0 to 1
+     "trace": {"query", "task_selected", "input_config", "routing_method",
+               "tools_used": [{"name","params"}], "outputs": [...]}}
+  validate_inputs(paths) returns:
+    {"config_type": "single_optical"|"single_sar"|"bitemporal_pair"|
+     "crossmodal_pair", "images": [...], "warnings": [str]}
+IT ALREADY RUNS ON MOCKS. From minute one you can call the real
+handle_query() and get realistic fake data. You are never blocked.
+
+YOUR TASKS, IN ORDER
+--------------------
+TASK 1 (MINIMUM): frontend/app.py, single page, top to bottom:
+  a) Title + one-line explanation of what the tool does.
+  b) st.file_uploader (accept .tif .tiff .png .jpg, up to 2 files).
+     Save uploads to a temp dir, preview them side by side (for .tif, use
+     Person 4's to_rgb(); until it lands, preview PNGs only).
+  c) Validation panel: call validate_inputs(), show detected type as a
+     badge ("Bi-temporal pair"), show warnings in yellow, errors in red.
+     Until Person 4 lands, stub it: config from file count + extension.
+  d) Query box + example-query buttons that fill the box (copy the 5
+     representative queries from the problem statement; judges often click
+     exactly these).
+  e) On submit: call handle_query(), show st.spinner while it runs.
+  f) Results:
+     - the answer, big and readable
+     - confidence as a progress bar + percent
+     - the image with evidence drawn on it (Task 2)
+     - expander "How the agent did this": task selected, routing method,
+       table of tools + params, per-tool outputs. Make this look GOOD,
+       judges grade this trace explicitly.
+  g) Download buttons (Task 3).
+
+TASK 2 (MINIMUM): evidence drawing. backend/reporting/overlay.py:
+  draw_evidence(rgb_array, spatial) -> PNG bytes
+  - bbox: red rectangles, 3px, PIL ImageDraw
+  - mask: color changed/water/built pixels with ~50% alpha over the image
+    (mask 1 = blue water, 2 = orange built-up, or red for change masks)
+  - None: return image unchanged
+  Test standalone with the mock outputs before wiring in.
+
+TASK 3 (MINIMUM): the downloadable report. backend/reporting/report.py:
+  build_report(query, validation, response, overlay_png) -> bytes
+  - JSON always: query, config, warnings, answer, confidence, full trace,
+    timestamp. st.download_button("Download report (JSON)", ...)
+  - HTML if time (an f-string template with the overlay image base64-embedded
+    is fine, prints to PDF from the browser). Skip real PDF libs today.
+
+TASK 4 (BETTER): polish that wins demos, in value order:
+  a) before/after image slider for bitemporal pairs (streamlit-image-comparison,
+     pip installable) with the change mask on the "after" side. Huge wow.
+  b) session history in st.session_state: ask multiple questions about the
+     same upload without re-uploading; history shown down the page.
+  c) a "sample data" button that loads a bundled demo pair from
+     data/samples/ so the live demo never depends on hunting for files.
+  d) map view if images have geo-metadata (st.map or folium): nice ISRO
+     touch, only if everything else is done.
+
+TASK 5 (EXTRA, you have the most slack):
+  - collect 2-3 killer sample inputs with Persons 2/3/4 for the demo:
+    one pretty optical scene, one aligned before/after pair with obvious
+    change, one Sentinel-1/Sentinel-2 pair
+  - run through the whole pitch: upload -> validate -> ask -> evidence ->
+    trace -> download. Time it. This run-through IS the presentation.
+
+DEPENDENCIES
+------------
+- None to start (mocks). Real pieces land during the day; you swap stubs:
+  validator stub -> Person 4's, preview via to_rgb() -> Person 4's.
+- If anyone wants to change the response shape, they go through Person 1,
+  and you get told. Push back on late changes.
+
+DEFINITION OF DONE
+------------------
+[ ] Full flow in browser: upload -> validation badge -> question -> answer
+    + confidence + evidence overlay + trace expander -> download JSON report
+[ ] Works for all 3 input types (single, bitemporal, crossmodal)
+[ ] Evidence drawing handles bbox, mask, and None without errors
+[ ] The 5 example-query buttons all produce sensible screens on mocks
+[ ] A bundled sample dataset loads with one click
