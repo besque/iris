@@ -1,4 +1,4 @@
-# SatQuery AI
+# iridis AI
 
 An agentic vision-language assistant for satellite imagery. Ask questions in plain English about single images, optical–SAR pairs, or before/after image pairs — the system picks the right specialist model, runs it, and returns an answer with visual evidence.
 
