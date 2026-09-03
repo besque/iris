@@ -53,6 +53,7 @@ def strip_boxes(text: str) -> str:
     text = re.sub(r"\{\s*<[^}]*>\s*\}", "", text)
     text = re.sub(r"(<\s*-?\d+(?:\.\d+)?\s*>){4}(\|<[^>]*>)?", "", text)
     text = re.sub(r"<\|box_start\|>.*?<\|box_end\|>", "", text)
+    text = _QWEN.sub("", text)   # bare (x1,y1),(x2,y2) when the model drops the tags
     text = re.sub(r"<\|object_ref_start\|>|<\|object_ref_end\|>|<delim>", "", text)
     text = _PHRASE.sub(r"\1", text)
     return re.sub(r"\s{2,}", " ", text).strip(" ,.;") or text.strip()
