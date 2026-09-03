@@ -9,6 +9,14 @@ venv/
 # Data & models — never commit these
 data/*
 !data/README.md
+!data/change/
+data/change/*
+!data/change/A/
+!data/change/A/.gitkeep
+!data/change/B/
+!data/change/B/.gitkeep
+!data/change/label/
+!data/change/label/.gitkeep
 models/*
 !models/README.md
 *.tif
@@ -17,6 +25,13 @@ models/*
 *.pt
 *.pth
 *.ckpt
+*.crdownload
+*.part
+*.download
+*.zip
+*.tar
+*.tar.gz
+*.tgz
 
 # Notebooks checkpoints
 .ipynb_checkpoints/
