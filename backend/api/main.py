@@ -115,7 +115,10 @@ def query(body: QueryIn):
         label = object_phrase(body.query).removeprefix("the ").removeprefix("a ")[:40] or trace["task_selected"]
         boxes = [{"label": label, "x": x1 / w, "y": y1 / h, "w": (x2 - x1) / w, "h": (y2 - y1) / h}
                  for x1, y1, x2, y2 in sp["data"]]
-        img = draw_boxes(base, sp["data"], label)
+        # the web app draws these boxes itself, so keep the evidence image clean
+        # and save a boxed copy for anyone reading the session folder
+        draw_boxes(base, sp["data"], label).save(os.path.join(s["dir"], f"boxes_{n}.png"))
+        img = base
         spatial = {"boxes": boxes, "overlay_note": f"{len(boxes)} region(s) found"}
     elif sp and sp.get("type") == "mask" and sp.get("data") is not None:
         mask = np.asarray(sp["data"])
