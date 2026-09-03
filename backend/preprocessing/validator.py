@@ -99,8 +99,9 @@ def to_rgb(path: str, target_size: tuple[int, int] | None = None) -> np.ndarray:
         rgb = data[[2, 1, 0]] if data.shape[0] > 3 else data[[0, 1, 2]]
     else:
         band = data[0]
-        band = np.where(band > 0, band, np.nan)
-        band = 10.0 * np.log10(band, out=np.full_like(band, np.nan), where=band > 0)
+        if np.nanmin(band) >= 0:  # linear values, convert to dB
+            band = np.where(band > 0, band, np.nan)
+            band = 10.0 * np.log10(band, out=np.full_like(band, np.nan), where=band > 0)
         rgb = np.stack([band] * 3)
 
     out = np.zeros_like(rgb)

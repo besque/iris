@@ -20,6 +20,8 @@ def _read_bands(path: str) -> np.ndarray:
 
 def _sar_db(path: str) -> np.ndarray:
     band = _read_bands(path)[0]
+    if np.nanmin(band) < 0:
+        return band  # already in dB
     band = np.where(band > 0, band, 1e-6)
     return 10.0 * np.log10(band)
 
