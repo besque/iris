@@ -29,8 +29,10 @@ if [ -z "${GEOCHAT_ENDPOINT:-}" ]; then
 fi
 [ -n "${GEOCHAT_ENDPOINT:-}" ] && echo "geochat: $GEOCHAT_ENDPOINT -> $(curl -s -m 10 "$GEOCHAT_ENDPOINT/health" || echo unreachable)"
 
-pgrep -f "uvicorn backend.api.main" >/dev/null || \
-  (PYTHONPATH=. nohup .venv/bin/uvicorn backend.api.main:app --port 8000 > /tmp/iridis_api.log 2>&1 &)
+# always restart the API so it picks up the endpoint given on this run
+pkill -f "uvicorn backend.api.main" 2>/dev/null || true
+sleep 1
+(PYTHONPATH=. nohup .venv/bin/uvicorn backend.api.main:app --port 8000 > /tmp/iridis_api.log 2>&1 &)
 for _ in $(seq 1 20); do curl -s -m 2 http://localhost:8000/health >/dev/null && break; sleep 1; done
 echo "api: $(curl -s http://localhost:8000/health)"
 
