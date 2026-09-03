@@ -80,7 +80,7 @@ def handle_query(query: str, validated_inputs: dict | None = None) -> dict:
     config = normalize_input_config(inputs["config_type"])
 
     task = llm_route(query, config)
-    routing_method = "llm_function_call" if task else "rule_based_fallback"
+    routing_method = "llm_function_call" if task else "rule_based"
     if task is None:
         task = rule_route(query, config)
 
