@@ -38,10 +38,13 @@ def detect_keys(sample):
 
 
 def main():
-    from datasets import load_dataset
+    from datasets import get_dataset_split_names, load_dataset
 
     os.makedirs(f"{OUT}/images", exist_ok=True)
-    ds = load_dataset(REPO, split="train", streaming=True)
+    splits = get_dataset_split_names(REPO)
+    split = "train" if "train" in splits else splits[0]
+    print(f"using split '{split}' (available: {splits})")
+    ds = load_dataset(REPO, split=split, streaming=True)
     it = iter(ds)
     first = next(it)
     img_key, lbl_key = detect_keys(first)
