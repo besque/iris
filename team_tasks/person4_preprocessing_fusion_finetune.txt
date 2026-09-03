@@ -1,0 +1,116 @@
+PERSON 4: IMAGE PLUMBING + THE MANDATORY FINE-TUNE + OPTICAL-SAR FUSION
+========================================================================
+Read team_tasks/README.txt first for the big picture. You have the 5070 Ti.
+
+CONTEXT: WHY YOUR ROLE EXISTS
+-----------------------------
+Three jobs, all critical:
+1. PLUMBING: real satellite data comes as GeoTIFF files with 1 to 13 bands,
+   16-bit values, and geo-metadata. The VLM tools eat normal RGB images.
+   Someone must read GeoTIFFs, figure out if an image is optical or SAR,
+   check that a pair actually matches, and convert everything to clean RGB.
+   Everyone downstream depends on this.
+2. THE FINE-TUNE: the rules DISQUALIFY any solution without at least one
+   model adapted on remote-sensing data (BigEarthNet named specifically).
+   You produce that proof: a training script, a checkpoint, and
+   before/after numbers. This is the single most important compliance item.
+3. FUSION: the optical + SAR joint analysis tool (mandatory task). SAR is
+   radar imaging: works through clouds and at night. Water looks very dark
+   in SAR (smooth surfaces bounce the radar away); buildings look very
+   bright (corners bounce it straight back). Optical gives color/vegetation.
+   Combining them finds water and built-up areas more reliably than either
+   alone, exactly ISRO's monsoon-flood use case.
+
+TASK 1 (MINIMUM, FIRST, ~2-3 hrs): the validator + converter.
+-------------------------------------------------------------
+backend/preprocessing/validator.py, implement validate_inputs(file_paths):
+  a) Open each file. rasterio for .tif/.tiff, PIL for .png/.jpg.
+  b) Detect modality, simple heuristics are fine:
+       1-2 bands + float/16-bit + high speckle -> SAR
+       3 bands 8-bit -> optical RGB
+       4+ bands -> multispectral (optical)
+     Also accept filename hints ("s1", "sar", "vv", "vh" -> SAR).
+     Record HOW you decided in the warnings list so it is auditable.
+  c) Pairs: same pixel size? If both have geo-metadata (CRS + bounds via
+     rasterio), do the bounds overlap? If sizes differ slightly, resize the
+     second to the first and add a warning. If they clearly do not overlap
+     geographically, return a hard error string, do not crash.
+  d) Classify: one image -> single_optical | single_sar
+     two images, one SAR one optical -> crossmodal_pair
+     two images, same modality      -> bitemporal_pair
+     Return {"config_type": ..., "images": [...], "warnings": [...]}.
+     These exact names are already wired into the controller.
+  e) to_rgb(path) -> uint8 HxWx3 numpy array:
+     multispectral: pick RGB bands (Sentinel-2: B4,B3,B2), percentile
+     stretch 2-98% to 0-255. SAR: log-scale (10*log10), clip, stretch,
+     replicate to 3 channels. Persons 2/3 call this; ship it early, rough
+     is fine.
+  f) Add 2-3 tests in tests/test_validator.py (a fake 1-band tif made with
+     rasterio in-memory counts). Announce in the group when done.
+
+TASK 2 (MINIMUM, start by early afternoon): the BigEarthNet fine-tune.
+----------------------------------------------------------------------
+Goal is honest, documented adaptation, not a giant training run.
+  a) Data: do NOT download full BigEarthNet (hundreds of GB). Get a subset:
+     torchgeo's BigEarthNet loader supports it, and HuggingFace hosts
+     subsets, search "BigEarthNet" on HF datasets. A few thousand patches
+     with their multi-label classes (e.g. "arable land", "urban fabric",
+     "water bodies") is plenty. Put the download script in scripts/.
+  b) Model: RemoteCLIP (https://github.com/ChenDelong1999/RemoteCLIP) or
+     plain OpenCLIP ViT-B/32. CLIP = a model matching images to text.
+  c) Train: LoRA (the `peft` library) on image-text pairs where the text is
+     the label names ("a satellite image of urban fabric and water bodies").
+     Batch 64+, 2-3 epochs, an hour or two on the 5070 Ti. Script goes in
+     training/finetune_clip.py with a config file so it is reproducible.
+  d) PROOF (this is the deliverable): zero-shot label accuracy on a held-out
+     split, BEFORE vs AFTER fine-tuning. Even 61% -> 74% is a great slide.
+     Write numbers + command to evaluation/results/adaptation.md.
+  e) BONUS built in: train on both Sentinel-2 (optical) AND Sentinel-1
+     (SAR) patches from BigEarthNet and your model understands both
+     modalities, which Task 3 then uses. That makes OUR OWN fine-tuned
+     model the fusion engine, a strong story for judges.
+
+TASK 3 (MINIMUM, after 1, alongside 2): the fusion tool.
+--------------------------------------------------------
+backend/tools/fusion/fusion_tool.py -> class FusionTool(Tool), pattern in
+backend/tools/mocks.py, input_types = ["crossmodal_pair"].
+Bare-minimum version, classical + honest (no ML needed to work):
+  a) WATER mask: SAR backscatter below a threshold (water is dark in SAR).
+     If the optical is multispectral with a near-infrared band, also compute
+     NDWI (a standard water index: (Green-NIR)/(Green+NIR), high = water)
+     and AND the two masks. Agreement of two sensors = higher confidence.
+  b) BUILT-UP mask: SAR very bright + optical not vegetation.
+  c) ToolResult:
+     text       = "Water covers ~X% (SAR + optical agree on Y% of it),
+                   built-up ~Z%, concentrated in the north."
+     spatial    = {"type": "mask", "data": <label mask: 0 none,1 water,2 built>}
+     confidence = fraction of mask area where both sensors agreed
+     metadata   = {"model": "sar_optical_rules_v1", "thresholds": {...}}
+BETTER version, once Task 2 finishes: classify tiles of both images with
+your fine-tuned CLIP ("water bodies" vs "urban fabric" vs other) and merge
+with the classical masks. Now the mandatory fine-tune IS the fusion brain.
+
+TASK 4 (MINIMUM): test script.
+  scripts/test_fusion.py on a Sentinel-1/Sentinel-2 pair of the same area
+  (BigEarthNet patches are exactly this, use two of them). Print the text,
+  save the mask PNG. Then message Person 1 to swap the mock.
+
+DEPENDENCIES
+------------
+- Nobody blocks you. Everyone waits on YOUR Task 1, so do it first and
+  announce it loudly.
+- Persons 2/3 test on plain PNGs meanwhile, so rough-but-shipped beats
+  perfect-but-late for to_rgb().
+- Person 2 may need the 5070 Ti for demo-time inference AFTER your training
+  finishes. Agree on a handoff time.
+
+DEFINITION OF DONE
+------------------
+[ ] validate_inputs() classifies all 4 configs, catches bad pairs, has tests
+[ ] to_rgb() produces clean images from GeoTIFF (multispectral AND SAR)
+[ ] Fine-tune done: script + checkpoint in models/ + BEFORE/AFTER numbers
+    in evaluation/results/adaptation.md
+[ ] FusionTool returns text + labeled mask + agreement-based confidence
+[ ] Person 1 swapped the fusion mock; demo runs on a real S1/S2 pair
+[ ] Lines in docs/ARCHITECTURE.md: modality heuristics, fine-tune setup,
+    fusion method
