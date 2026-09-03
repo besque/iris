@@ -1,0 +1,28 @@
+ROLE: Single-Image Tools (VQA + one more: captioning or grounding)
+
+These are the mandatory baseline tasks: VQA is required, plus either captioning or grounding. You own both.
+
+RESEARCH FIRST (max 1 hour, then commit):
+Find one open-weights remote-sensing VLM that can do VQA and captioning (and ideally grounding) in a single model, so you only load one model. Candidates to compare:
+- GeoChat: https://github.com/mbzuai-oryx/GeoChat (VQA + grounding + captioning, weights on HuggingFace, most popular)
+- LHRS-Bot: https://github.com/NJU-LHRS/LHRS-Bot
+- SkyEyeGPT: https://github.com/ZhanYang-nwpu/SkyEyeGPT
+Decide based on: can you actually get it running on our GPU/collab today, weights available, inference speed. Do not pick the "best" one, pick the one you can run by lunch.
+
+WHAT TO BUILD:
+1. backend/tools/vqa/: a class subclassing Tool from backend/tools/base.py. run() takes an image + question, returns ToolResult (text answer, confidence if the model gives one).
+2. backend/tools/captioning/ OR backend/tools/grounding/: same pattern. If your model does grounding, prefer grounding (returns boxes in ToolResult.spatial), it demos better. Your call.
+3. A tiny test script that runs your tool on 2-3 sample images so anyone can verify it works.
+
+EVALUATION (if time allows, else hand to whoever is free):
+Wire your tool into evaluation/eval_rsvqa.py against the RSVQA test split. Even scores on 100 samples are better than nothing.
+
+DEPENDENCIES:
+- Follow backend/tools/base.py exactly. Do not change it, ask Person 1 if you need a change.
+- Your model gets PNG/JPEG or an RGB array. Person 4's preprocessing converts GeoTIFF to that. Until then, test with plain PNG/JPEG from RSVQA/VRSBench samples.
+- When your tool works, message Person 1 so they swap out the mock.
+
+BY END OF DAY:
+- VQA tool and one more tool working on sample images.
+- Registered in backend/agent/registry.py (coordinate with Person 1).
+- Note in docs/ARCHITECTURE.md: which model you picked and why, one line.

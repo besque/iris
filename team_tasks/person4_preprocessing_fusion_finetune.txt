@@ -1,0 +1,31 @@
+ROLE: Preprocessing + Optical-SAR Fusion + Fine-tuning (mandatory adaptation)
+
+You own three things. Priority order below matters, do them in this order.
+
+PART 1: INPUT VALIDATOR (do this first, everyone needs it) (backend/preprocessing/validator.py)
+- Read GeoTIFF/TIFF with rasterio, also accept PNG/JPEG.
+- Detect modality: SAR vs optical. Heuristics: band count (1-2 bands = likely SAR, 3+ = optical/multispectral), metadata tags, filename hints. Keep it simple.
+- For pairs: check same size, and if geo metadata exists, same area/CRS.
+- Output one of: single_optical, single_sar, bitemporal_pair, crossmodal_pair, plus warnings.
+- Also: a function that converts any input to an RGB array/PNG for the VLM tools (band selection for multispectral, scaling for SAR). Person 2 and 3 need this.
+Target: done in 2-3 hours, then message the group.
+
+PART 2: FINE-TUNING (mandatory requirement, project fails without it)
+The rule: at least one component must be adapted on BigEarthNet or other open RS data.
+Cheapest credible path for one day: LoRA fine-tune a CLIP-style model (RemoteCLIP or plain CLIP) on a small BigEarthNet subset (Sentinel-2 optical + Sentinel-1 SAR patches with label text). Even a few thousand samples for a couple of epochs counts as adaptation.
+- RemoteCLIP: https://github.com/ChenDelong1999/RemoteCLIP
+- GeoRSCLIP: https://huggingface.co/Zilun/GeoRSCLIP
+Save the script in training/, checkpoint in models/, and record before/after numbers on anything (even zero-shot classification accuracy on a held-out subset). The before/after evidence is what matters.
+NOTE: if Person 2's chosen VLM is already RS-adapted (like GeoChat), we still do this for safety, and your fine-tuned encoder becomes the fusion backbone in Part 3. Two birds.
+
+PART 3: OPTICAL-SAR FUSION TOOL (backend/tools/fusion/)
+Goal: "use optical and SAR together to identify built-up and water regions".
+Simple credible approach: run your fine-tuned (or pretrained) encoder / a segmentation head on both images, combine (e.g. water shows dark in SAR, vegetation clear in optical), output a labeled mask + short text summary. You decide the method, keep it simple. A Tool subclass like everyone else.
+
+DEPENDENCIES:
+- Your validator output format: agree with Person 1 in the first hour.
+- Your RGB-conversion function: Persons 2 and 3 need it, ship it early even if rough.
+- BigEarthNet download is huge, use a subset. Put the download script in scripts/.
+
+BY END OF DAY:
+- Validator working, fine-tuning done with before/after numbers, fusion tool at least demoable.
