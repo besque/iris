@@ -10,8 +10,12 @@ GRID_NAMES = [
 ]
 
 
+BLUR = 3        # px, hides tiny misregistration between dates
+CLEAN = 11      # median filter size on the mask, kills speckle
+
+
 def _gray(img: Image.Image, size) -> np.ndarray:
-    g = img.convert("L").resize(size).filter(ImageFilter.GaussianBlur(2))
+    g = img.convert("L").resize(size).filter(ImageFilter.GaussianBlur(BLUR))
     return np.asarray(g, dtype=np.float32)
 
 
@@ -56,7 +60,7 @@ def change_map(img_a: Image.Image, img_b: Image.Image, method: str = "edges",
     diff = np.abs(a - b)
     thr = max(_otsu(np.clip(diff, 0, 255)), min_threshold)
     mask = diff > thr
-    mask = np.asarray(Image.fromarray(mask.astype(np.uint8) * 255).filter(ImageFilter.MedianFilter(7))) > 127
+    mask = np.asarray(Image.fromarray(mask.astype(np.uint8) * 255).filter(ImageFilter.MedianFilter(CLEAN))) > 127
     pct = float(100 * mask.mean())
     return {
         "mask": mask,

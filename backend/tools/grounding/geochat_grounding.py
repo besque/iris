@@ -21,6 +21,14 @@ def object_phrase(query: str) -> str:
     return q
 
 
+def _where(box, width, height) -> str:
+    """Box centre -> 'north-west', 'center', ..."""
+    cx, cy = (box[0] + box[2]) / 2 / width, (box[1] + box[3]) / 2 / height
+    row = ["north", "", "south"][min(int(cy * 3), 2)]
+    col = ["west", "", "east"][min(int(cx * 3), 2)]
+    return "-".join(p for p in (row, col) if p) or "center"
+
+
 def build_prompt(query: str, task_tag: str = "refer") -> str:
     q = query.strip()
     if q.lower().startswith(TAGS):
@@ -81,7 +89,10 @@ class GeoChatGrounding(Tool):
                 raw = raw2
         text = strip_boxes(raw)
         if boxes:
-            text = text or f"Found {len(boxes)} region(s)."
+            places = sorted({_where(b, width, height) for b in boxes})
+            found = (f"Highlighted {obj}: {len(boxes)} region{'s' if len(boxes) > 1 else ''} "
+                     f"in the {' and '.join(places)} of the image.")
+            text = f"{found} {text}".strip() if text else found
         else:
             text = (text + " " if text else "") + "No region found."
 

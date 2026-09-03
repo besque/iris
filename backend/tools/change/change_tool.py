@@ -19,6 +19,7 @@ THEMES = {
 
 
 CHANGE_CUTOFF = 15.5   # percent of pixels, from scripts/eval_change_map.py on LEVIR-CC
+MARGIN = 2
 
 
 def _first_sentence(text: str) -> str:
@@ -60,20 +61,23 @@ class ChangeTool(Tool):
             before, after = _count(desc_a, THEMES[theme]), _count(desc_b, THEMES[theme])
             trend = "increased" if after > before else "decreased" if after < before else "remained unchanged"
 
-        # the map alone is fooled by seasons, so the verdict needs the descriptions to agree with it
+        # the map alone is fooled by seasons and wording wobbles, so a theme must
+        # move by MARGIN mentions before it counts as a real difference
         counts_a = {k: _count(desc_a, w) for k, w in THEMES.items()}
         counts_b = {k: _count(desc_b, w) for k, w in THEMES.items()}
-        descs_differ = counts_a != counts_b
+        grew = [k for k in THEMES if counts_b[k] - counts_a[k] >= MARGIN]
+        shrank = [k for k in THEMES if counts_a[k] - counts_b[k] >= MARGIN]
+        descs_differ = bool(grew or shrank)
         big_map = cm["percent"] >= CHANGE_CUTOFF
         no_change = not big_map and not descs_differ
+        if theme and no_change:
+            trend = "remained unchanged"
 
         if no_change:
             text = f"Little to no change detected between the two dates (about {cm['percent']}% of pixels differ, mostly seasonal)."
             if theme:
                 text += f" The {theme} appears unchanged."
         else:
-            grew = [k for k in THEMES if counts_b[k] > counts_a[k]]
-            shrank = [k for k in THEMES if counts_b[k] < counts_a[k]]
             what = []
             if grew:
                 what.append(f"more {', '.join(grew)}")
