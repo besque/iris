@@ -1,0 +1,33 @@
+ROLE: Frontend + API + Reporting (what the judges actually see)
+
+You own the entire user-facing layer. A mediocre model with a great UI beats the opposite in judging.
+
+WHAT TO BUILD:
+1. FRONTEND: use Streamlit (fastest for one day, your call if you strongly prefer something else). Screens:
+   - Upload 1 or 2 images (GeoTIFF/TIFF/PNG/JPEG), show a preview
+   - Show validation result (detected modality, pair type, warnings)
+   - Text box for the query, plus a few example query buttons (take them from the problem statement)
+   - Results: text answer, image with overlays (boxes/masks/change map), confidence, and an expandable "execution summary" showing task, tools, params used
+   - Download report button
+
+2. API (backend/api/main.py): POST /upload, POST /query, GET /report. If you go pure Streamlit you can skip FastAPI and call the backend functions directly. Your decision, decide in the first hour and tell Person 1.
+
+3. REPORTING (backend/reporting/):
+   - Overlay drawing: given an image + boxes/masks from ToolResult.spatial, draw them (PIL/matplotlib, keep simple)
+   - Report generation: JSON always, PDF if time (query, images, answer, evidence image, trace, confidence)
+
+KEY TRICK FOR TODAY:
+Do not wait for the backend. Hour 1: agree with Person 1 on the exact response dict (answer, spatial, confidence, trace). Then build the whole UI against a hardcoded fake response. When the real backend is ready it just plugs in.
+
+DEPENDENCIES:
+- Response shape contract with Person 1, first hour, write it in docs/ARCHITECTURE.md.
+- Validator output shape from Person 4 (for the upload screen).
+- Sample images: grab a few from RSVQA/CDVQA once Persons 2/3 download them.
+
+EXTRA (you have the most slack, pick these up if ahead):
+- Help run evaluation scripts for Persons 2/3
+- Record the demo video / prepare the presentation flow
+- Make the execution summary look good, judges explicitly evaluate the trace
+
+BY END OF DAY:
+- Full flow works in the browser: upload -> validate -> query -> answer with evidence -> download report.
