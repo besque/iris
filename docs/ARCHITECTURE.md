@@ -28,6 +28,10 @@
 - [x] Input config names: canonical enum lives in controller.py CONFIG_ALIASES; if the validator emits different names, add an alias there, do not rename. (Person 1)
 - [x] ToolResult contract unchanged from the skeleton: text/spatial/confidence/metadata. API maps text -> answer. (Person 1)
 
+- [x] Modality detection: filename hints first, else band count + dtype (1-2 bands or non-uint8 = SAR). Reasons recorded in warnings. (Person 4)
+- [x] Fusion v1: rule-based. Water = dark SAR AND NDWI>0, built-up = bright SAR minus vegetation minus water; confidence = sensor agreement on water. Upgrade path: fine-tuned CLIP tile classification. (Person 4)
+- [x] Adaptation: LoRA on openai CLIP ViT-B/32, BigEarthNet subset streamed from HF (BIFOLD-BigEarthNetv2-0/BigEarthNet.txt), before/after zero-shot numbers in evaluation/results/adaptation.md. (Person 4)
+
 ## API response shape (Person 5: confirm this works for you)
 
 ```json
