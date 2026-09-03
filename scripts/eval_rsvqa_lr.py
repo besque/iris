@@ -25,7 +25,7 @@ from backend.tools.vqa.geochat_vqa import GeoChatVQA  # noqa: E402
 
 DATA = "data/rsvqa_lr"
 OUT = "evaluation/results/rsvqa_lr.md"
-TYPES = ["presence", "comparison", "rural_urban"]
+TYPES = ["presence", "comp", "rural_urban"]   # dataset names comparison "comp"
 SUFFIX = " Answer the question using a single word or phrase."   # geochat's own eval prompt
 
 

@@ -26,6 +26,13 @@ def _sar_db(path: str) -> np.ndarray:
     return 10.0 * np.log10(band)
 
 
+def _despeckle(mask: np.ndarray, size: int) -> np.ndarray:
+    """Median filter: drops isolated pixels, keeps coherent patches."""
+    from PIL import Image, ImageFilter
+    img = Image.fromarray(mask.astype(np.uint8) * 255)
+    return np.asarray(img.filter(ImageFilter.MedianFilter(size))) > 127
+
+
 def _dominant_region(mask: np.ndarray) -> str:
     h, w = mask.shape
     best, name = -1.0, "center"
@@ -75,6 +82,9 @@ class FusionTool(Tool):
             agree_w = 0.5
 
         built = bright_sar & ~veg & ~water
+        # size 3 for water so thin rivers survive, 5 for built to kill terrain speckle
+        water = _despeckle(water, 3)
+        built = _despeckle(built, 5)
         mask = np.zeros(sar.shape, dtype=np.uint8)
         mask[water], mask[built] = 1, 2
 
