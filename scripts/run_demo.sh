@@ -12,8 +12,15 @@
 COLAB_URL="https://carb-pilot-buys-empire.trycloudflare.com"
 
 set -e
-export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin:$PATH"   # some shells lose the system tools
+export PATH="$PATH:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"   # some shells lose the system tools
 cd "$(dirname "$0")/.."
+
+# newest python 3.10+ we can find (macOS ships an old /usr/bin/python3)
+PY=""
+for c in python3.13 python3.12 python3.11 python3.10 python3; do
+  if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys; sys.exit(sys.version_info < (3, 10))'; then PY="$c"; break; fi
+done
+[ -n "$PY" ] || { echo "need python 3.10 or newer on PATH"; exit 1; }
 
 if [ "${1:-}" = "stop" ]; then
   pkill -f "uvicorn backend.api.main" || true
@@ -24,8 +31,9 @@ fi
 
 # one-time setup
 if [ ! -x .venv/bin/uvicorn ]; then
-  echo "setting up python venv (first run only)..."
-  python3 -m venv .venv
+  echo "setting up python venv with $PY (first run only)..."
+  "$PY" -m venv .venv
+  .venv/bin/pip install -q --upgrade pip
   .venv/bin/pip install -q -r requirements.txt
 fi
 if [ ! -d frontend/node_modules ]; then
