@@ -35,19 +35,13 @@ Answer + evidence image + execution summary + JSON report
 
 Needs: a laptop with Python 3.11+ and Node 18+, plus a free Colab GPU for the GeoChat model.
 
-1. Open `notebooks/geochat_colab.ipynb` in Google Colab (Runtime → T4 GPU), run section 1 (installs, downloads the weights, loads the model in 4-bit) and section 2 (serves it and prints a `https://....trycloudflare.com` URL). Keep the tab open.
-2. On the laptop:
-
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-(cd frontend && npm install)
-
-GEOCHAT_ENDPOINT=https://xxxx.trycloudflare.com scripts/run_demo.sh   # API on :8000, web app on :5173
+scripts/run_demo.sh        # first run also sets up the venv and frontend packages
 open http://127.0.0.1:5173
 scripts/run_demo.sh stop
 ```
 
-Without `GEOCHAT_ENDPOINT` the pipeline still runs, but only the fusion tool and the change map answer. To use your own GPU machine instead of Colab, see `scripts/geochat_remote.sh`.
+The model server is a Colab notebook. If `run_demo.sh` says the model is **not reachable**, the Colab runtime has restarted: open `notebooks/geochat_colab.ipynb` in Colab (Runtime → T4 GPU), run section 1 then section 2, copy the `https://....trycloudflare.com` URL it prints, and paste it into `COLAB_URL` at the top of `scripts/run_demo.sh`. Keep the Colab tab open while demoing. Without a reachable model the app still runs, but only the fusion tool and the change map answer. To use your own GPU machine instead, see `scripts/geochat_remote.sh`.
 
 Useful checks:
 
@@ -59,7 +53,7 @@ PYTHONPATH=. .venv/bin/python scripts/test_fusion.py               # optical + S
 
 ## Remote-sensing adaptation (mandatory)
 
-`training/finetune_clip.py` LoRA-tunes CLIP ViT-B/32 on BigEarthNet patches (Sentinel-1 + Sentinel-2 via ben-ge-8k) with land-cover labels, then on the BigEarthNet.txt captions joined to the same patches. Numbers live in `evaluation/results/adaptation.md`. Data prep: `scripts/prepare_bigearthnet.py`, `scripts/prepare_bigearthnet_txt.py`.
+Needs the GPU extras: `pip install -r requirements-train.txt`. `training/finetune_clip.py` LoRA-tunes CLIP ViT-B/32 on BigEarthNet patches (Sentinel-1 + Sentinel-2 via ben-ge-8k) with land-cover labels, then on the BigEarthNet.txt captions joined to the same patches. Numbers live in `evaluation/results/adaptation.md`. Data prep: `scripts/prepare_bigearthnet.py`, `scripts/prepare_bigearthnet_txt.py`.
 
 ## Evaluation
 

@@ -1,0 +1,7 @@
+# Only for training / fine-tuning and the GPU-side scripts.
+-r requirements.txt
+torch
+transformers
+peft            # LoRA fine-tuning
+datasets
+huggingface_hub
