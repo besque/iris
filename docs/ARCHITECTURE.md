@@ -46,3 +46,10 @@
 ## Open decisions (fill in as we decide)
 
 - [ ] Which change-VQA model
+
+## Integration decisions (final day)
+
+- Change tool: classical edge-difference map (WHERE) + GeoChat descriptions of both dates (WHAT). Verdict = map above 15.5% (cut-off from LEVIR-CC, scripts/eval_change_map.py) or a land-cover theme mentioned 2+ times more/less. Confidence 0.7 when map and descriptions agree, 0.5 otherwise. CDChat wrapper kept in backend/tools/change/tool.py for a later upgrade.
+- API (backend/api/main.py) adapts the controller output to the React app's types: boxes normalised 0-1, masks rendered to evidence PNGs served from /files, trace as {task, input_type, tools_used[{tool, params, status, summary}], latency_ms, notes}.
+- GeoChat runs on the GPU box only on demand (scripts/geochat_remote.sh start/stop) behind an ssh tunnel; nothing runs there permanently. No paid APIs, no local LLM; routing is rule-based.
+- BigEarthNet.txt (the dataset named in the brief) is used two ways: its captions join the ben-ge-8k BigEarthNet patches (scripts/prepare_bigearthnet_txt.py) for CLIP fine-tuning, and its yes/no + multiple-choice questions score GeoChat (scripts/eval_bigearthnet_txt_qa.py).

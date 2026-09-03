@@ -1,72 +1,87 @@
 # iridis AI
 
-An agentic vision-language assistant for satellite imagery. Ask questions in plain English about single images, optical–SAR pairs, or before/after image pairs — the system picks the right specialist model, runs it, and returns an answer with visual evidence.
+An agentic vision-language assistant for satellite imagery. Ask questions in plain English about single images, optical–SAR pairs, or before/after image pairs — the system picks the right specialist model, runs it, and returns an answer with visual evidence, a confidence score, an execution trace, and a downloadable report.
 
 ## What it does
 
-| Input | Tasks |
-|---|---|
-| Single image (optical or SAR) | VQA, captioning, region grounding |
-| Bi-temporal pair (two dates) | Change description, change VQA |
-| Optical + SAR pair (co-registered) | Joint analysis (built-up areas, water, etc.) |
+| Input | Tasks | Engine |
+|---|---|---|
+| Single image (optical or SAR) | VQA, captioning, region grounding | GeoChat-7B (remote-sensing VLM, 4-bit) |
+| Bi-temporal pair (two dates) | Change description, change VQA, change map | edge-difference map + GeoChat on both dates |
+| Optical + SAR pair (co-registered) | Water and built-up mapping | SAR/optical rules + CLIP fine-tuned on BigEarthNet |
 
-## How it works (high level)
+## How it works
 
 ```
 User query + images
       │
       ▼
-[Input Validator]  ── checks format, modality, pair compatibility
+[Input Validator]  ── reads GeoTIFF/PNG, detects optical vs SAR, checks pair compatibility
       │
       ▼
-[Agent Controller] ── classifies the task, picks tools from the registry
+[Agent Controller] ── classifies the task, picks tools from the fixed registry
       │
       ▼
-[Specialist Tools] ── VQA / caption / grounding / change / fusion models
+[Specialist Tools] ── vqa / caption / grounding / change / fusion
       │
       ▼
-[Output Combiner]  ── merges text + spatial outputs, confidence, evidence
+[API + Reporting]  ── draws evidence, aggregates confidence (weakest tool), builds the trace
       │
       ▼
-Answer + visual evidence + execution summary + downloadable report
+Answer + evidence image + execution summary + JSON report
 ```
+
+## Running the demo
+
+Needs: this laptop (Python 3.11+, Node 18+) and ssh access to the GPU box that holds the GeoChat weights. Nothing runs on the GPU box permanently; the model server is started for the session and stopped afterwards.
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+(cd frontend && npm install)
+
+scripts/run_demo.sh        # starts GeoChat remotely + ssh tunnel, the API on :8000, the web app on :5173
+open http://127.0.0.1:5173
+scripts/run_demo.sh stop   # stops everything, including the remote model
+```
+
+Without the GPU box, the pipeline still runs against the fusion tool and the change map; GeoChat-backed tools need `GEOCHAT_ENDPOINT`.
+
+Useful checks:
+
+```bash
+PYTHONPATH=. .venv/bin/python -m pytest tests/ -q
+PYTHONPATH=. .venv/bin/python scripts/run_controller_demo.py       # five example queries through the controller
+PYTHONPATH=. .venv/bin/python scripts/test_fusion.py               # optical + SAR on a synthetic pair
+```
+
+## Remote-sensing adaptation (mandatory)
+
+`training/finetune_clip.py` LoRA-tunes CLIP ViT-B/32 on BigEarthNet patches (Sentinel-1 + Sentinel-2 via ben-ge-8k) with land-cover labels, then on the BigEarthNet.txt captions joined to the same patches. Numbers live in `evaluation/results/adaptation.md`. Data prep: `scripts/prepare_bigearthnet.py`, `scripts/prepare_bigearthnet_txt.py`.
+
+## Evaluation
+
+`evaluation/results/` holds the benchmark runs: RSVQA-LR (`rsvqa_lr.md`), VRSBench VQA + captioning (`vrsbench.md`), BigEarthNet.txt QA (`bigearthnet_txt_qa.md`), grounding phrasing study, change-map separation on LEVIR-CC (`scripts/eval_change_map.py`).
 
 ## Repo structure
 
 ```
-satquery/
-├── frontend/        # Web UI (upload images, type queries, see results)
+├── frontend/            # React + Vite web app
 ├── backend/
-│   ├── api/         # FastAPI server — endpoints the frontend calls
-│   ├── agent/       # The "brain": query understanding, task routing, planning
-│   ├── tools/       # Specialist model wrappers, one folder per task
-│   │   ├── vqa/         # single-image visual question answering
-│   │   ├── captioning/  # scene description
-│   │   ├── grounding/   # "highlight the water body" → bounding box/mask
-│   │   ├── change/      # bi-temporal change description / change VQA
-│   │   └── fusion/      # optical + SAR joint analysis
-│   ├── preprocessing/   # GeoTIFF reading, band handling, validation, co-registration checks
-│   └── reporting/       # evidence overlays, confidence, execution trace, PDF/JSON reports
-├── training/        # Fine-tuning scripts (BigEarthNet adaptation) — the mandatory RS adaptation
-├── evaluation/      # Benchmark eval: VRSBench, RSVQA, CDVQA
-├── data/            # Datasets (gitignored — download scripts live in scripts/)
-├── models/          # Model checkpoints (gitignored)
-├── scripts/         # Dataset download, setup, demo helpers
-├── notebooks/       # Experiments and exploration
-├── docs/            # Architecture decisions, meeting notes, references
-└── tests/           # Unit tests
+│   ├── api/             # FastAPI: /upload, /query, /report, /files
+│   ├── agent/           # controller (routing), registry, confidence
+│   ├── tools/           # one folder per task, all implement tools/base.py
+│   ├── preprocessing/   # validator + GeoTIFF/SAR to RGB
+│   └── reporting/       # evidence overlays
+├── training/            # fine-tuning scripts
+├── evaluation/results/  # benchmark numbers
+├── scripts/             # data prep, evals, demo helpers, remote model control
+├── docs/                # ARCHITECTURE.md (decisions), RESEARCH.md (background)
+├── team_tasks/          # per-person briefs used during the build
+└── tests/
 ```
 
-## Setup
+## Team conventions
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-## Team workflow
-
-- Work on feature branches, PR into `main`.
-- Each tool in `backend/tools/` follows the same interface (`backend/tools/base.py`) so they plug into the agent registry without touching the controller.
-- Big files (datasets, checkpoints) never go in git — put download scripts in `scripts/` instead.
+- Each tool follows `backend/tools/base.py` (`Tool`, `ToolResult`) and is registered in `backend/agent/registry.py`.
+- Datasets and checkpoints are gitignored; download scripts live in `scripts/`.
+- Every decision gets a line in `docs/ARCHITECTURE.md`.
