@@ -1,40 +1,63 @@
-"""Streams a small BigEarthNet subset from HuggingFace and saves it as
-PNGs + a labels jsonl. Run on the training machine, needs internet.
+"""Streams a BigEarthNet subset (GFM-Bench version: real S1+S2 pixels + labels)
+and saves PNGs + a labels jsonl for CLIP fine-tuning.
 
 Usage: python scripts/prepare_bigearthnet.py [n_train] [n_val]
 Output: data/bigearthnet_subset/{train,val}.jsonl + images/
 
-If the default repo's schema differs, the script prints the actual columns,
-then set IMAGE_KEY and LABEL_KEY below. Fallback dataset if HF streaming
-fails: ben-ge-8k (https://github.com/HSG-AIML/ben-ge), 4.2GB archive.
+Optical rows say "a satellite image of ...", SAR rows "a SAR satellite image
+of ...", so the model adapts to both modalities.
 """
 
 import json
 import os
 import sys
 
-REPO = "BIFOLD-BigEarthNetv2-0/BigEarthNet.txt"
-IMAGE_KEY = None   # auto-detect, or set by hand, e.g. "s2_rgb"
-LABEL_KEY = None   # e.g. "labels"
+import numpy as np
 
+REPO = "GFM-Bench/BigEarthNet"
 N_TRAIN = int(sys.argv[1]) if len(sys.argv) > 1 else 4000
 N_VAL = int(sys.argv[2]) if len(sys.argv) > 2 else 800
 OUT = "data/bigearthnet_subset"
+INCLUDE_SAR = True
+
+# sentinel-2 12-band L2A order: B01,B02,B03,B04,... so RGB = B04,B03,B02
+RGB_IDX = [3, 2, 1]
 
 
-def detect_keys(sample):
+def to_chw(x) -> np.ndarray:
+    """Accepts list/array/PIL, returns channels-first float array."""
+    if hasattr(x, "convert"):
+        x = np.asarray(x)
+    a = np.asarray(x, dtype=np.float32)
+    if a.ndim == 2:
+        a = a[None]
+    elif a.ndim == 3 and a.shape[0] > a.shape[2]:
+        a = np.moveaxis(a, -1, 0)  # HWC -> CHW
+    return a
+
+
+def stretch_to_png(chw: np.ndarray, path: str):
     from PIL import Image
-    img_key, lbl_key = IMAGE_KEY, LABEL_KEY
-    for k, v in sample.items():
-        if img_key is None and isinstance(v, Image.Image):
-            img_key = k
-        if lbl_key is None and isinstance(v, list) and v and isinstance(v[0], (str, int)):
-            lbl_key = k
-    if not img_key or not lbl_key:
-        print(f"could not auto-detect keys, columns are: {list(sample.keys())}")
-        print("set IMAGE_KEY and LABEL_KEY at the top of this script")
-        sys.exit(1)
-    return img_key, lbl_key
+    out = np.zeros_like(chw)
+    for i in range(chw.shape[0]):
+        lo, hi = np.percentile(chw[i], 2), np.percentile(chw[i], 98)
+        out[i] = np.clip((chw[i] - lo) / (hi - lo + 1e-6), 0, 1)
+    arr = (np.moveaxis(out, 0, -1) * 255).astype(np.uint8)
+    if arr.shape[2] == 1:
+        arr = np.repeat(arr, 3, axis=2)
+    Image.fromarray(arr).save(path)
+
+
+def label_names(raw, feature):
+    vals = raw if isinstance(raw, list) else [raw]
+    names = []
+    for v in vals:
+        if isinstance(v, int):
+            f = getattr(feature, "feature", feature)
+            names.append(f.names[v] if hasattr(f, "names") else str(v))
+        else:
+            names.append(str(v))
+    return names
 
 
 def main():
@@ -45,33 +68,41 @@ def main():
     split = "train" if "train" in splits else splits[0]
     print(f"using split '{split}' (available: {splits})")
     ds = load_dataset(REPO, split=split, streaming=True)
-    it = iter(ds)
-    first = next(it)
-    img_key, lbl_key = detect_keys(first)
-    print(f"using image column '{img_key}', label column '{lbl_key}'")
 
-    names = ds.features[lbl_key].feature.names if hasattr(ds.features.get(lbl_key, None), "feature") else None
-
-    def label_text(raw):
-        if names and raw and isinstance(raw[0], int):
-            return [names[i] for i in raw]
-        return [str(x) for x in raw]
-
-    written = {"train": 0, "val": 0}
-    files = {s: open(f"{OUT}/{s}.jsonl", "w") for s in written}
-    for i, sample in enumerate([first] + list(next(it, None) for _ in range(N_TRAIN + N_VAL - 1))):
-        if sample is None:
+    files = {s: open(f"{OUT}/{s}.jsonl", "w") for s in ("train", "val")}
+    n = 0
+    for sample in ds:
+        if n == 0:
+            print("columns:", list(sample.keys()))
+            if "optical" not in sample or "label" not in sample:
+                print("expected 'optical' and 'label' columns, adjust the script")
+                sys.exit(1)
+        if n >= N_TRAIN + N_VAL:
             break
-        split = "train" if i < N_TRAIN else "val"
-        img_path = f"{OUT}/images/{i:06d}.png"
-        sample[img_key].convert("RGB").save(img_path)
-        files[split].write(json.dumps({"image": img_path, "labels": label_text(sample[lbl_key])}) + "\n")
-        written[split] += 1
-        if i % 500 == 0:
-            print(f"{i} done")
+        split_name = "train" if n < N_TRAIN else "val"
+        labels = label_names(sample["label"], ds.features["label"])
+
+        opt = to_chw(sample["optical"])
+        rgb = opt[RGB_IDX] if opt.shape[0] >= 4 else opt[:3]
+        opt_path = f"{OUT}/images/{n:06d}_opt.png"
+        stretch_to_png(rgb, opt_path)
+        files[split_name].write(json.dumps(
+            {"image": opt_path, "labels": labels, "modality": "optical"}) + "\n")
+
+        if INCLUDE_SAR and "radar" in sample:
+            sar = to_chw(sample["radar"])[:1]
+            sar_path = f"{OUT}/images/{n:06d}_sar.png"
+            stretch_to_png(sar, sar_path)
+            files[split_name].write(json.dumps(
+                {"image": sar_path, "labels": labels, "modality": "sar"}) + "\n")
+
+        n += 1
+        if n % 250 == 0:
+            print(f"{n} samples done")
+
     for f in files.values():
         f.close()
-    print(f"saved {written}")
+    print(f"saved {n} samples ({N_TRAIN} train / {n - N_TRAIN} val) to {OUT}")
 
 
 if __name__ == "__main__":

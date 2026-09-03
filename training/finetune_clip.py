@@ -36,7 +36,8 @@ class BenDataset(Dataset):
 
     def __getitem__(self, i):
         r = self.rows[i]
-        text = PROMPT.format(", ".join(r["labels"]).lower())
+        prompt = "a SAR satellite image of {}" if r.get("modality") == "sar" else PROMPT
+        text = prompt.format(", ".join(r["labels"]).lower())
         return Image.open(r["image"]).convert("RGB"), text, r["labels"]
 
 
