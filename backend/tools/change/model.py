@@ -1,7 +1,13 @@
 from pathlib import Path
 from typing import Any, Optional
 
-import torch
+
+def _cuda_available() -> bool:
+    try:
+        import torch
+        return torch.cuda.is_available()
+    except ImportError:
+        return False
 
 
 class ChangeModel:
@@ -24,9 +30,7 @@ class ChangeModel:
         self.model_base = model_base
         self.mm_projector_path = mm_projector_path
 
-        self.device = device or (
-            "cuda" if torch.cuda.is_available() else "cpu"
-        )
+        self.device = device or ("cuda" if _cuda_available() else "cpu")
 
         self.tokenizer = None
         self.model = None
