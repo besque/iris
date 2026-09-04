@@ -75,7 +75,7 @@ class ChangeTool(Tool):
 
         return ToolResult(
             text=text,
-            spatial={"type": "mask", "data": cm["mask"].astype("uint8")},
+            spatial={"type": "mask", "data": cm["mask"].astype("uint8")} if map_says_change else None,
             confidence=0.7 if (not map_says_change or cm["percent"] >= CHANGE_CUTOFF + 3) else 0.6,
             metadata={
                 "model": f"{gc.model_name()} (side-by-side) + pixel-diff",
