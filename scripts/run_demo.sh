@@ -9,7 +9,7 @@
 
 # >>> CHANGE THIS when the Colab runtime restarts: section 2 of
 # >>> notebooks/geochat_colab.ipynb prints the new https://....trycloudflare.com URL
-COLAB_URL="https://carb-pilot-buys-empire.trycloudflare.com"
+COLAB_URL="https://worldwide-jun-remarkable-eds.trycloudflare.com"
 
 set -e
 export PATH="$PATH:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"   # some shells lose the system tools
