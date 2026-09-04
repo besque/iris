@@ -1,7 +1,8 @@
 import { buildReportJson, mockQuery, mockUpload, triggerDownload } from "./mock";
 import type { QueryResponse, ReportPayload, UploadResponse, ValidationResult } from "./types";
 
-const USE_MOCK = import.meta.env.VITE_USE_MOCK !== "false";
+// live backend by default; set VITE_USE_MOCK=true only for UI work without a backend
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
 async function parseJson<T>(res: Response): Promise<T> {

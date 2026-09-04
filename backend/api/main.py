@@ -100,6 +100,9 @@ def query(body: QueryIn):
     try:
         r = handle_query(body.query, s["validated"])
     except Exception as e:
+        if "ConnectionPool" in str(e) or "Connection refused" in str(e) or "resolve" in str(e):
+            raise HTTPException(503, "The model server is unreachable. The Colab runtime has probably restarted: "
+                                     "re-run its serve cell, put the new URL in scripts/run_demo.sh, and restart the demo.")
         raise HTTPException(500, f"agent failed: {e}")
     latency = int((time.time() - t0) * 1000)
     trace = r["trace"]

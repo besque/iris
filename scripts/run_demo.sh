@@ -66,7 +66,9 @@ sleep 1
 for _ in $(seq 1 20); do curl -s -m 2 http://localhost:8000/health >/dev/null && break; sleep 1; done
 echo "api: $(curl -s http://localhost:8000/health)"
 
-pgrep -f "vite" >/dev/null || \
-  (cd frontend && VITE_USE_MOCK=false nohup npm run dev -- --host 127.0.0.1 > /tmp/iridis_vite.log 2>&1 &)
+# restart the web app too, so a stale one from another folder or in mock mode never lingers
+pkill -f "vite" 2>/dev/null || true
+sleep 1
+(cd frontend && VITE_USE_MOCK=false nohup npm run dev -- --host 127.0.0.1 > /tmp/iridis_vite.log 2>&1 &)
 sleep 3
 echo "web app: http://127.0.0.1:5173   (logs: /tmp/iridis_api.log, /tmp/iridis_vite.log)"
