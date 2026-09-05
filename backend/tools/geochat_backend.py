@@ -32,14 +32,15 @@ def backend_name() -> str:
 def _remote_health() -> dict:
     """The serve cell reports which model it loaded, so ask it once instead of guessing."""
     if "health" not in _local:
-        _local["health"] = {}
         url = os.environ.get("GEOCHAT_ENDPOINT")
         if url:
             try:
                 import requests
                 _local["health"] = requests.get(url.rstrip("/") + "/health", timeout=15).json()
             except Exception:
-                pass
+                return {}   # do not cache a failure, the tunnel may just be starting
+        else:
+            _local["health"] = {}
     return _local["health"]
 
 
