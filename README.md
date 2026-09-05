@@ -33,7 +33,7 @@ Answer + evidence image + execution summary + JSON report
 
 ## Running the demo
 
-Needs: a laptop with Python 3.11+ and Node 18+, plus a free Colab GPU for the GeoChat model.
+Needs: a laptop with Python 3.10+ and Node 18+ (macOS, Linux, or Windows via Git Bash), plus a free Colab GPU for the model.
 
 ```bash
 scripts/run_demo.sh        # first run also sets up the venv and frontend packages
